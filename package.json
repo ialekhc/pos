@@ -1,0 +1,19 @@
+{
+  "name": "multi-tenant-pos-saas",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.1.0",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "turbo run format",
+    "db:migrate": "pnpm --filter @pos/api prisma:migrate",
+    "db:seed": "pnpm --filter @pos/api prisma:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3",
+    "typescript": "^5.7.2"
+  }
+}
