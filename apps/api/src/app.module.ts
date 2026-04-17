@@ -23,8 +23,10 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantScopeGuard } from './common/guards/tenant-scope.guard';
 import { FeatureGuard } from './common/guards/feature.guard';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
