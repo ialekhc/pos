@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/c
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { User } from '@prisma/client';
+import { User, UserRoleCode } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { ActiveUser } from '../common/types/active-user.type';
@@ -32,8 +32,11 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
+    const normalizedEmail = loginDto.email.trim().toLowerCase();
+    const normalizedTenantSlug = loginDto.tenantSlug?.trim().toLowerCase();
+
     const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
+      where: { email: normalizedEmail },
       include: { role: true, tenant: true }
     });
 
@@ -41,11 +44,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    if (loginDto.tenantSlug && user.tenant?.slug !== loginDto.tenantSlug) {
+    const shouldValidateTenantSlug = Boolean(normalizedTenantSlug) && user.role.code !== UserRoleCode.SUPER_ADMIN;
+    if (shouldValidateTenantSlug && user.tenant?.slug !== normalizedTenantSlug) {
       throw new ForbiddenException('Tenant mismatch.');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.passwordHash);
+    const rawPassword = loginDto.password;
+    const trimmedPassword = rawPassword.trim();
+    let isPasswordValid = await bcrypt.compare(rawPassword, user.passwordHash);
+    if (!isPasswordValid && trimmedPassword !== rawPassword) {
+      isPasswordValid = await bcrypt.compare(trimmedPassword, user.passwordHash);
+    }
+
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials.');
     }

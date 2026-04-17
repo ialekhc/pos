@@ -38,12 +38,16 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedTenantSlug = tenantSlug.trim().toLowerCase();
+      const isLikelySuperAdmin = normalizedEmail.endsWith('@platform.local');
+
       const payload = await apiRequest<AuthPayload>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({
-          email,
+          email: normalizedEmail,
           password,
-          tenantSlug: tenantSlug || undefined
+          tenantSlug: !isLikelySuperAdmin && normalizedTenantSlug ? normalizedTenantSlug : undefined
         })
       });
 
@@ -55,7 +59,22 @@ export default function LoginPage() {
         router.push('/tenant/dashboard');
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Login failed');
+      if (submitError instanceof Error) {
+        let message = submitError.message;
+        try {
+          const parsed = JSON.parse(submitError.message) as { message?: string | string[] };
+          if (Array.isArray(parsed.message)) {
+            message = parsed.message.join(', ');
+          } else if (typeof parsed.message === 'string') {
+            message = parsed.message;
+          }
+        } catch {
+          // Keep original text when response is not JSON.
+        }
+        setError(message);
+      } else {
+        setError('Login failed');
+      }
     } finally {
       setLoading(false);
     }
