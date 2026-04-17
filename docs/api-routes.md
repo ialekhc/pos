@@ -62,7 +62,7 @@
 - `GET /inventory/logs`
 
 ## Sales / POS
-- `GET /sales`
+- `GET /sales` (`?take=15` optional, max 100)
 - `GET /sales/:saleId`
 - `POST /sales`
 - `POST /sales/refund`

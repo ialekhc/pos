@@ -20,12 +20,15 @@ export class SalesService {
     private readonly realtimeGateway: RealtimeGateway
   ) {}
 
-  list(actor: ActiveUser) {
+  list(actor: ActiveUser, takeRaw?: string) {
     if (!actor.tenantId) {
       throw new ForbiddenException('Tenant context required.');
     }
 
-    return this.salesRepository.findByTenant(actor.tenantId);
+    const takeParsed = Number.parseInt(takeRaw ?? '', 10);
+    const take = Number.isFinite(takeParsed) ? Math.min(Math.max(takeParsed, 1), 100) : undefined;
+
+    return this.salesRepository.findByTenant(actor.tenantId, take);
   }
 
   async getById(actor: ActiveUser, saleId: string) {

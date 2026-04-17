@@ -18,7 +18,7 @@ type SaleItemComputation = {
 export class SalesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findByTenant(tenantId: string) {
+  findByTenant(tenantId: string, take?: number) {
     return this.prisma.sale.findMany({
       where: { tenantId },
       include: {
@@ -26,7 +26,8 @@ export class SalesRepository {
         payments: true,
         cashier: true
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take
     });
   }
 

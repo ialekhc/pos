@@ -2,7 +2,6 @@
 
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 type CartLine = {
   productId: string;
@@ -20,10 +19,7 @@ export function CartPanel({
   onUpdateQuantity,
   onRemove,
   onClear,
-  onHold,
-  onCheckout,
-  checkoutAmount,
-  onCheckoutAmountChange
+  onHold
 }: {
   items: CartLine[];
   subtotal: number;
@@ -33,9 +29,6 @@ export function CartPanel({
   onRemove: (productId: string) => void;
   onClear: () => void;
   onHold: () => void;
-  onCheckout: () => void;
-  checkoutAmount: number;
-  onCheckoutAmountChange: (value: number) => void;
 }) {
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -96,22 +89,10 @@ export function CartPanel({
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        <label className="text-xs font-medium text-muted-foreground">Received Amount</label>
-        <Input
-          type="number"
-          step="0.01"
-          min={0}
-          value={checkoutAmount || ''}
-          onChange={(event) => onCheckoutAmountChange(Number(event.target.value || 0))}
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2">
         <Button variant="secondary" onClick={onHold}>
           Hold
         </Button>
-        <Button onClick={onCheckout}>Checkout</Button>
       </div>
     </div>
   );
