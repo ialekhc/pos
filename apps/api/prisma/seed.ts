@@ -618,30 +618,39 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       }
     });
 
-    await prisma.inventoryLog.createMany({
-      data: [
-        {
-          tenantId: tenant.id,
-          productId: cola.id,
-          action: 'STOCK_IN',
-          quantity: 120,
-          previousQuantity: 0,
-          newQuantity: 120,
-          reason: 'Initial stock seed',
-          createdById: adminUser.id
-        },
-        {
-          tenantId: tenant.id,
-          productId: chips.id,
-          action: 'STOCK_IN',
-          quantity: 90,
-          previousQuantity: 0,
-          newQuantity: 90,
-          reason: 'Initial stock seed',
-          createdById: adminUser.id
-        }
-      ]
+    const hasInventorySeedLogs = await prisma.inventoryLog.count({
+      where: {
+        tenantId: tenant.id,
+        reason: 'Initial stock seed'
+      }
     });
+
+    if (!hasInventorySeedLogs) {
+      await prisma.inventoryLog.createMany({
+        data: [
+          {
+            tenantId: tenant.id,
+            productId: cola.id,
+            action: 'STOCK_IN',
+            quantity: 120,
+            previousQuantity: 0,
+            newQuantity: 120,
+            reason: 'Initial stock seed',
+            createdById: adminUser.id
+          },
+          {
+            tenantId: tenant.id,
+            productId: chips.id,
+            action: 'STOCK_IN',
+            quantity: 90,
+            previousQuantity: 0,
+            newQuantity: 90,
+            reason: 'Initial stock seed',
+            createdById: adminUser.id
+          }
+        ]
+      });
+    }
 
     const demoSaleNumber = `${tenant.slug.toUpperCase()}-0001`;
     const existingSale = await prisma.sale.findUnique({
@@ -750,18 +759,32 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       });
     }
 
-    await prisma.auditLog.create({
-      data: {
+    const hasBootstrapAuditLog = await prisma.auditLog.findFirst({
+      where: {
         tenantId: tenant.id,
-        actorType: 'SYSTEM',
         action: 'TENANT_BOOTSTRAP_SEEDED',
         entity: 'Tenant',
-        entityId: tenant.id,
-        details: {
-          seededPlan: tenantSeed.planCode
-        }
+        entityId: tenant.id
+      },
+      select: {
+        id: true
       }
     });
+
+    if (!hasBootstrapAuditLog) {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          actorType: 'SYSTEM',
+          action: 'TENANT_BOOTSTRAP_SEEDED',
+          entity: 'Tenant',
+          entityId: tenant.id,
+          details: {
+            seededPlan: tenantSeed.planCode
+          }
+        }
+      });
+    }
   }
 }
 
