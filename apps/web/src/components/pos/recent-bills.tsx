@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Eye, RefreshCw } from 'lucide-react';
+import { Eye, Printer, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,28 +11,22 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { PosSale } from '@/lib/types';
+import { ReceiptPrintContext, printSaleReceipt } from './receipt-print';
 
 function currency(value: string | number) {
   return `$${Number(value).toFixed(2)}`;
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
 export function RecentBills({
   bills,
   loading,
-  onReload
+  onReload,
+  receiptContext
 }: {
   bills: PosSale[];
   loading: boolean;
   onReload: () => void;
+  receiptContext: ReceiptPrintContext;
 }) {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
 
@@ -45,67 +39,7 @@ export function RecentBills({
     if (!selectedBill) {
       return;
     }
-
-    const rows = selectedBill.items
-      .map(
-        (item) =>
-          `<tr><td>${escapeHtml(item.productName)}</td><td>${item.quantity}</td><td>${currency(item.unitPrice)}</td><td>${currency(item.lineTotal)}</td></tr>`
-      )
-      .join('');
-
-    const paymentRows = selectedBill.payments
-      .map((payment) => `<tr><td>${payment.method}</td><td>${payment.status}</td><td>${currency(payment.amount)}</td></tr>`)
-      .join('');
-
-    const opened = window.open('', '_blank', 'width=780,height=720');
-    if (!opened) {
-      return;
-    }
-
-    opened.document.write(`
-      <html>
-        <head>
-          <title>Bill ${selectedBill.saleNumber}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
-            h1 { margin: 0 0 8px; font-size: 22px; }
-            .muted { color: #666; margin: 0 0 14px; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
-            .totals { margin-top: 16px; width: 280px; margin-left: auto; }
-            .totals td { border: none; padding: 4px 0; }
-          </style>
-        </head>
-        <body>
-          <h1>POS Bill ${escapeHtml(selectedBill.saleNumber)}</h1>
-          <p class="muted">Completed: ${new Date(selectedBill.completedAt).toLocaleString()}</p>
-          <table>
-            <thead>
-              <tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <table class="totals">
-            <tbody>
-              <tr><td>Subtotal</td><td>${currency(selectedBill.subtotal)}</td></tr>
-              <tr><td>Discount</td><td>${currency(selectedBill.discountAmount)}</td></tr>
-              <tr><td>Tax</td><td>${currency(selectedBill.taxAmount)}</td></tr>
-              <tr><td><b>Grand Total</b></td><td><b>${currency(selectedBill.totalAmount)}</b></td></tr>
-              <tr><td>Paid</td><td>${currency(selectedBill.paidAmount)}</td></tr>
-              <tr><td>Change</td><td>${currency(selectedBill.changeAmount)}</td></tr>
-            </tbody>
-          </table>
-          <h3 style="margin-top:20px;">Payments</h3>
-          <table>
-            <thead><tr><th>Method</th><th>Status</th><th>Amount</th></tr></thead>
-            <tbody>${paymentRows || '<tr><td colspan="3">No payments</td></tr>'}</tbody>
-          </table>
-        </body>
-      </html>
-    `);
-    opened.document.close();
-    opened.focus();
-    opened.print();
+    printSaleReceipt(selectedBill, receiptContext);
   };
 
   return (
@@ -127,6 +61,13 @@ export function RecentBills({
             </div>
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold">{currency(bill.totalAmount)}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => printSaleReceipt(bill, receiptContext)}
+              >
+                <Printer className="h-3.5 w-3.5" />
+              </Button>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button

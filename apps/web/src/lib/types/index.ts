@@ -79,3 +79,11 @@ export type PosSale = {
   payments: PosPayment[];
   cashier?: { firstName?: string | null; lastName?: string | null } | null;
 };
+
+export type PosSettings = {
+  businessName: string;
+  currency: string;
+  receiptFooter?: string | null;
+  timezone?: string | null;
+  taxRate?: number | string | null;
+};

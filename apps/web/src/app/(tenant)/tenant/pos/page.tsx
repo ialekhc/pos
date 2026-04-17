@@ -5,11 +5,14 @@ import { ProductPicker } from '@/components/pos/product-picker';
 import { CartPanel } from '@/components/pos/cart-panel';
 import { BillingPanel } from '@/components/pos/billing-panel';
 import { RecentBills } from '@/components/pos/recent-bills';
+import { CheckoutReceiptDialog } from '@/components/pos/checkout-receipt-dialog';
+import { ReceiptPrintContext, printSaleReceipt } from '@/components/pos/receipt-print';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOfflineCart } from '@/hooks/use-offline-cart';
 import { apiRequest } from '@/lib/api/client';
-import { PaymentMethod, PosSale, Product, SalePaymentInput } from '@/lib/types';
+import { useSessionStore } from '@/lib/stores/use-session-store';
+import { PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
 
 const TAX_RATE = 0.05;
 
@@ -55,8 +58,10 @@ function extractErrorMessage(error: unknown) {
 }
 
 export default function PosPage() {
+  const sessionUser = useSessionStore((state) => state.user);
   const [products, setProducts] = useState<Product[]>([]);
   const [recentBills, setRecentBills] = useState<PosSale[]>([]);
+  const [settings, setSettings] = useState<PosSettings | null>(null);
   const [search, setSearch] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -68,6 +73,9 @@ export default function PosPage() {
   const [splitPayments, setSplitPayments] = useState<PaymentLineDraft[]>([createPaymentDraft('CASH')]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingBills, setIsLoadingBills] = useState(false);
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState(true);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [lastCompletedSale, setLastCompletedSale] = useState<PosSale | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -129,6 +137,17 @@ export default function PosPage() {
     );
   }, [products, search]);
 
+  const receiptContext = useMemo<ReceiptPrintContext>(
+    () => ({
+      businessName: settings?.businessName || sessionUser?.tenantName || 'POS Cloud',
+      currency: settings?.currency || 'USD',
+      receiptFooter: settings?.receiptFooter || undefined,
+      timezone: settings?.timezone || undefined,
+      cashierName: `${sessionUser?.firstName ?? ''} ${sessionUser?.lastName ?? ''}`.trim() || undefined
+    }),
+    [sessionUser?.firstName, sessionUser?.lastName, sessionUser?.tenantName, settings]
+  );
+
   const loadProducts = async () => {
     try {
       const rows = await apiRequest<Product[]>('/products');
@@ -150,9 +169,25 @@ export default function PosPage() {
     }
   };
 
+  const loadSettings = async () => {
+    try {
+      const data = await apiRequest<PosSettings>('/settings');
+      setSettings(data);
+    } catch {
+      // Receipt rendering falls back to tenant/session defaults if settings are unavailable.
+    }
+  };
+
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('pos-auto-print-receipt');
+      if (stored === 'false') {
+        setAutoPrintReceipt(false);
+      }
+    }
     void loadProducts();
     void loadRecentBills();
+    void loadSettings();
   }, []);
 
   const resetBillingState = () => {
@@ -202,6 +237,11 @@ export default function PosPage() {
 
       setMessage(`Bill ${sale.saleNumber} completed and synced.`);
       setError(null);
+      setLastCompletedSale(sale);
+      setReceiptDialogOpen(true);
+      if (autoPrintReceipt) {
+        printSaleReceipt(sale, receiptContext);
+      }
       clear();
       resetBillingState();
       await Promise.all([loadProducts(), loadRecentBills()]);
@@ -267,6 +307,24 @@ export default function PosPage() {
       <div className="space-y-3">
         {error ? <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
         {message ? <p className="rounded-md bg-primary/10 p-2 text-sm text-primary">{message}</p> : null}
+
+        <div className="flex items-center justify-between rounded-md border bg-card px-3 py-2 text-sm">
+          <p className="text-muted-foreground">Receipt printing</p>
+          <Button
+            type="button"
+            size="sm"
+            variant={autoPrintReceipt ? 'default' : 'outline'}
+            onClick={() => {
+              const next = !autoPrintReceipt;
+              setAutoPrintReceipt(next);
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem('pos-auto-print-receipt', String(next));
+              }
+            }}
+          >
+            {autoPrintReceipt ? 'Auto Print On' : 'Auto Print Off'}
+          </Button>
+        </div>
 
         <CartPanel
           items={currentCart}
@@ -335,8 +393,20 @@ export default function PosPage() {
           onCheckout={checkout}
         />
 
-        <RecentBills bills={recentBills} loading={isLoadingBills} onReload={loadRecentBills} />
+        <RecentBills
+          bills={recentBills}
+          loading={isLoadingBills}
+          onReload={loadRecentBills}
+          receiptContext={receiptContext}
+        />
       </div>
+
+      <CheckoutReceiptDialog
+        open={receiptDialogOpen}
+        onOpenChange={setReceiptDialogOpen}
+        sale={lastCompletedSale}
+        printContext={receiptContext}
+      />
     </div>
   );
 }
