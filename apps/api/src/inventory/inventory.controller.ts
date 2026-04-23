@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { UserRoleCode } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ActiveUser } from '../common/types/active-user.type';
+import { ListInventoryLogsQueryDto } from './dto/list-inventory-logs-query.dto';
 import { StockAdjustmentDto } from './dto/stock-adjustment.dto';
 import { InventoryService } from './inventory.service';
 
@@ -16,8 +17,13 @@ export class InventoryController {
     return this.inventoryService.adjustStock(user, body);
   }
 
+  @Get('summary')
+  summary(@CurrentUser() user: ActiveUser) {
+    return this.inventoryService.summary(user);
+  }
+
   @Get('logs')
-  logs(@CurrentUser() user: ActiveUser) {
-    return this.inventoryService.listLogs(user);
+  logs(@CurrentUser() user: ActiveUser, @Query() query: ListInventoryLogsQueryDto) {
+    return this.inventoryService.listLogs(user, query);
   }
 }

@@ -8,7 +8,7 @@ export class StockAdjustmentDto {
   action!: 'STOCK_IN' | 'STOCK_OUT' | 'ADJUSTMENT';
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   quantity!: number;
 
   @IsOptional()

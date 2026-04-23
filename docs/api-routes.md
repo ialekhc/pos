@@ -59,7 +59,9 @@
 
 ## Inventory
 - `POST /inventory/adjust`
+- `GET /inventory/summary`
 - `GET /inventory/logs`
+  - optional query: `search`, `productId`, `action`, `dateFrom`, `dateTo`, `take`
 
 ## Sales / POS
 - `GET /sales` (`?take=15` optional, max 100)

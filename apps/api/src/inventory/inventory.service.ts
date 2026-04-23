@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRoleCode } from '@prisma/client';
 import { ActiveUser } from '../common/types/active-user.type';
 import { AuditService } from '../audit/audit.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { ListInventoryLogsQueryDto } from './dto/list-inventory-logs-query.dto';
 import { StockAdjustmentDto } from './dto/stock-adjustment.dto';
 import { InventoryRepository } from './inventory.repository';
 
@@ -14,12 +15,42 @@ export class InventoryService {
     private readonly realtimeGateway: RealtimeGateway
   ) {}
 
-  listLogs(actor: ActiveUser) {
+  listLogs(actor: ActiveUser, query: ListInventoryLogsQueryDto) {
     if (!actor.tenantId) {
       throw new ForbiddenException('Tenant context required.');
     }
 
-    return this.inventoryRepository.listLogs(actor.tenantId);
+    const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
+    const dateTo = query.dateTo ? new Date(query.dateTo) : undefined;
+
+    if (dateFrom) {
+      dateFrom.setHours(0, 0, 0, 0);
+    }
+
+    if (dateTo) {
+      dateTo.setHours(23, 59, 59, 999);
+    }
+
+    if (dateFrom && dateTo && dateFrom.getTime() > dateTo.getTime()) {
+      throw new BadRequestException('From date cannot be later than To date.');
+    }
+
+    return this.inventoryRepository.listLogs(actor.tenantId, {
+      search: query.search?.trim(),
+      productId: query.productId?.trim(),
+      action: query.action,
+      dateFrom,
+      dateTo,
+      take: query.take
+    });
+  }
+
+  summary(actor: ActiveUser) {
+    if (!actor.tenantId) {
+      throw new ForbiddenException('Tenant context required.');
+    }
+
+    return this.inventoryRepository.getSummary(actor.tenantId);
   }
 
   async adjustStock(actor: ActiveUser, dto: StockAdjustmentDto) {
@@ -37,13 +68,21 @@ export class InventoryService {
       throw new ForbiddenException('Cross-tenant stock modification denied.');
     }
 
+    if (dto.action === 'ADJUSTMENT' && dto.quantity < 0) {
+      throw new BadRequestException('Exact stock cannot be negative.');
+    }
+
+    if (dto.action !== 'ADJUSTMENT' && dto.quantity < 1) {
+      throw new BadRequestException('Quantity must be at least 1 for stock in/out.');
+    }
+
     try {
       const adjusted = await this.inventoryRepository.adjustStock({
         tenantId: product.tenantId,
         productId: dto.productId,
         action: dto.action,
         quantity: dto.quantity,
-        reason: dto.reason,
+        reason: dto.reason?.trim() || undefined,
         userId: actor.userId
       });
 

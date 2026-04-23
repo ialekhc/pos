@@ -177,6 +177,35 @@ DATABASE_URL="<your-neon-url>" REDIS_URL="<your-upstash-url>" pnpm --filter @pos
 - Super admin email: `superadmin@platform.local`
 - Super admin password: your `SUPER_ADMIN_PASSWORD` value
 
+### 5) GitHub Actions Deployment (Render)
+
+This repo now includes:
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/render-deploy.yml`
+
+`render-deploy.yml` runs on:
+
+- Push to `pos-deploy`
+- Manual trigger via **Actions > Render Deploy > Run workflow**
+
+Add these GitHub repository secrets before using the Render deploy workflow:
+
+- `RENDER_API_KEY` (Render personal API key)
+- `RENDER_API_SERVICE_ID` (example: `srv-...` for API service)
+- `RENDER_WEB_SERVICE_ID` (example: `srv-...` for web service)
+- `RENDER_API_HEALTHCHECK_URL` (example: `https://pos-api-free.onrender.com/api/v1/health`)
+- `RENDER_WEB_URL` (example: `https://pos-web-free.onrender.com`)
+
+What the workflow does:
+
+- Validates builds for API + web
+- Triggers API deploy and waits until Render marks it `live`
+- Triggers web deploy and waits until Render marks it `live`
+- Runs API health check and web login-route check
+
+If your Render services use a different branch, update the trigger branch in `.github/workflows/render-deploy.yml`.
+
 ### Free-tier behavior to expect
 
 - Free instances may spin down when idle (cold starts are normal)
