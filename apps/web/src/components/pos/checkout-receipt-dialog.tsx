@@ -45,7 +45,7 @@ export function CheckoutReceiptDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Receipt Ready</DialogTitle>
+          <DialogTitle>{sale?.billType === 'ESTIMATION' ? 'Estimation Bill Ready' : 'Receipt Ready'}</DialogTitle>
         </DialogHeader>
 
         {sale ? (
@@ -58,7 +58,7 @@ export function CheckoutReceiptDialog({
                 <span className="text-muted-foreground">Status:</span> {sale.status}
               </p>
               <p>
-                <span className="text-muted-foreground">Customer:</span> {sale.customerName || '-'}
+                <span className="text-muted-foreground">Party:</span> {sale.customerName || '-'}
               </p>
               <p>
                 <span className="text-muted-foreground">Phone:</span> {sale.customerPhone || '-'}
@@ -78,6 +78,7 @@ export function CheckoutReceiptDialog({
                 <thead className="bg-muted/60">
                   <tr>
                     <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">I/O</th>
                     <th className="px-3 py-2">Qty</th>
                     <th className="px-3 py-2">Line Total</th>
                   </tr>
@@ -85,7 +86,14 @@ export function CheckoutReceiptDialog({
                 <tbody>
                   {sale.items.map((item) => (
                     <tr key={item.id} className="border-t">
-                      <td className="px-3 py-2">{item.productName}</td>
+                      <td className="px-3 py-2">
+                        <div>{item.productName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Category: {item.categoryName ?? item.product?.category?.name ?? '-'} | HS:{' '}
+                          {item.hsCode ?? item.product?.hsCode ?? '-'}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">{item.ioLabel ?? (sale.billType === 'ESTIMATION' ? 'ESTIMATE' : 'OUT')}</td>
                       <td className="px-3 py-2">{item.quantity}</td>
                       <td className="px-3 py-2">{toMoney(item.lineTotal, printContext.currency)}</td>
                     </tr>

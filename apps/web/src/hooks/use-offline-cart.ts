@@ -8,6 +8,8 @@ type CartLine = {
   productId: string;
   name: string;
   sku: string;
+  categoryName?: string | null;
+  hsCode?: string | null;
   price: number;
   quantity: number;
 };

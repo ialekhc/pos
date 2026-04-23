@@ -23,7 +23,7 @@ export function ProductPicker({
         <Input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search by name, SKU, barcode"
+          placeholder="Search by name, SKU, barcode, HS Code, category"
         />
       </div>
 
@@ -37,6 +37,9 @@ export function ProductPicker({
           >
             <p className="font-semibold">{product.name}</p>
             <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+            <p className="text-xs text-muted-foreground">
+              Category: {product.category?.name ?? '-'} | HS: {product.hsCode ?? '-'}
+            </p>
             <p className="mt-2 text-sm font-medium">${Number(product.price).toFixed(2)}</p>
             <p className="text-xs text-muted-foreground">Stock: {product.stockQuantity}</p>
           </button>

@@ -14,8 +14,6 @@ import { apiRequest } from '@/lib/api/client';
 import { useSessionStore } from '@/lib/stores/use-session-store';
 import { PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
 
-const TAX_RATE = 0.05;
-
 type PaymentLineDraft = {
   id: string;
   method: PaymentMethod;
@@ -57,6 +55,18 @@ function extractErrorMessage(error: unknown) {
   }
 }
 
+function sanitizeTaxRate(value: number | string | null | undefined) {
+  const parsed = Number(value ?? 5);
+  if (!Number.isFinite(parsed)) {
+    return 5;
+  }
+  return Math.min(Math.max(parsed, 0), 100);
+}
+
+function createEstimateNumber() {
+  return `EST-${Date.now().toString().slice(-8)}`;
+}
+
 export default function PosPage() {
   const sessionUser = useSessionStore((state) => state.user);
   const [products, setProducts] = useState<Product[]>([]);
@@ -67,6 +77,7 @@ export default function PosPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [vatEnabled, setVatEnabled] = useState(true);
   const [splitMode, setSplitMode] = useState(false);
   const [singlePaymentMethod, setSinglePaymentMethod] = useState<PaymentMethod>('CASH');
   const [singlePaymentAmount, setSinglePaymentAmount] = useState(0);
@@ -96,8 +107,13 @@ export default function PosPage() {
     () => Math.min(Math.max(discountAmount, 0), subtotal),
     [discountAmount, subtotal]
   );
+  const taxRatePercent = useMemo(() => sanitizeTaxRate(settings?.taxRate), [settings?.taxRate]);
+  const taxRateFactor = useMemo(() => taxRatePercent / 100, [taxRatePercent]);
   const taxableSubtotal = useMemo(() => Math.max(subtotal - clampedDiscount, 0), [clampedDiscount, subtotal]);
-  const tax = useMemo(() => Number((taxableSubtotal * TAX_RATE).toFixed(2)), [taxableSubtotal]);
+  const tax = useMemo(
+    () => Number((vatEnabled ? taxableSubtotal * taxRateFactor : 0).toFixed(2)),
+    [taxRateFactor, taxableSubtotal, vatEnabled]
+  );
   const total = useMemo(() => Number((taxableSubtotal + tax).toFixed(2)), [tax, taxableSubtotal]);
 
   const checkoutPayments = useMemo<SalePaymentInput[]>(() => {
@@ -133,7 +149,9 @@ export default function PosPage() {
 
     const query = search.toLowerCase();
     return products.filter((product) =>
-      [product.name, product.sku, product.barcode ?? ''].some((field) => field.toLowerCase().includes(query))
+      [product.name, product.sku, product.barcode ?? '', product.hsCode ?? '', product.category?.name ?? ''].some(
+        (field) => field.toLowerCase().includes(query)
+      )
     );
   }, [products, search]);
 
@@ -161,7 +179,18 @@ export default function PosPage() {
     setIsLoadingBills(true);
     try {
       const bills = await apiRequest<PosSale[]>('/sales?take=15');
-      setRecentBills(bills);
+      setRecentBills(
+        bills.map((sale) => ({
+          ...sale,
+          billType: sale.billType ?? 'SALE',
+          items: sale.items.map((item) => ({
+            ...item,
+            categoryName: item.categoryName ?? item.product?.category?.name ?? null,
+            hsCode: item.hsCode ?? item.product?.hsCode ?? null,
+            ioLabel: item.ioLabel ?? 'OUT'
+          }))
+        }))
+      );
     } catch (requestError) {
       setError(extractErrorMessage(requestError));
     } finally {
@@ -201,6 +230,115 @@ export default function PosPage() {
     setSplitPayments([createPaymentDraft('CASH')]);
   };
 
+  const enrichSaleWithCartMetadata = (sale: PosSale) => {
+    const cartByProductId = new Map(currentCart.map((item) => [item.productId, item]));
+    return {
+      ...sale,
+      billType: sale.billType ?? 'SALE',
+      items: sale.items.map((item) => {
+        const cartLine = cartByProductId.get(item.productId);
+        return {
+          ...item,
+          categoryName: item.categoryName ?? item.product?.category?.name ?? cartLine?.categoryName ?? null,
+          hsCode: item.hsCode ?? item.product?.hsCode ?? cartLine?.hsCode ?? null,
+          ioLabel: item.ioLabel ?? 'OUT'
+        };
+      })
+    };
+  };
+
+  const printEstimation = () => {
+    if (!currentCart.length) {
+      setError('Add at least one item before printing an estimation bill.');
+      return;
+    }
+
+    const estimationItems = currentCart.map((line) => {
+      const baseAmount = line.price * line.quantity;
+      const weight = subtotal > 0 ? baseAmount / subtotal : 0;
+      const lineDiscount = Number((clampedDiscount * weight).toFixed(2));
+      const lineTax = Number((tax * weight).toFixed(2));
+      const lineTotal = Number((baseAmount - lineDiscount + lineTax).toFixed(2));
+
+      return {
+        id: `${line.productId}-estimate`,
+        productId: line.productId,
+        productName: line.name,
+        sku: line.sku,
+        categoryName: line.categoryName ?? null,
+        hsCode: line.hsCode ?? null,
+        ioLabel: 'ESTIMATE' as const,
+        quantity: line.quantity,
+        unitPrice: line.price.toFixed(2),
+        discountAmount: lineDiscount.toFixed(2),
+        taxAmount: lineTax.toFixed(2),
+        lineTotal: lineTotal.toFixed(2)
+      };
+    });
+
+    if (estimationItems.length) {
+      const lastIndex = estimationItems.length - 1;
+      const distributedDiscount = estimationItems.reduce(
+        (sum, item) => sum + Number(item.discountAmount),
+        0
+      );
+      const distributedTax = estimationItems.reduce((sum, item) => sum + Number(item.taxAmount), 0);
+      const discountDelta = Number((clampedDiscount - distributedDiscount).toFixed(2));
+      const taxDelta = Number((tax - distributedTax).toFixed(2));
+
+      if (discountDelta !== 0 || taxDelta !== 0) {
+        const current = estimationItems[lastIndex];
+        const baseAmount = Number(current.unitPrice) * current.quantity;
+        const adjustedDiscount = Number((Number(current.discountAmount) + discountDelta).toFixed(2));
+        const adjustedTax = Number((Number(current.taxAmount) + taxDelta).toFixed(2));
+        const adjustedLineTotal = Number((baseAmount - adjustedDiscount + adjustedTax).toFixed(2));
+
+        estimationItems[lastIndex] = {
+          ...current,
+          discountAmount: adjustedDiscount.toFixed(2),
+          taxAmount: adjustedTax.toFixed(2),
+          lineTotal: adjustedLineTotal.toFixed(2)
+        };
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const estimateSale: PosSale = {
+      id: `estimate-${Date.now()}`,
+      saleNumber: createEstimateNumber(),
+      billType: 'ESTIMATION',
+      status: 'COMPLETED',
+      source: 'POS',
+      customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
+      subtotal: subtotal.toFixed(2),
+      discountAmount: clampedDiscount.toFixed(2),
+      taxAmount: tax.toFixed(2),
+      totalAmount: total.toFixed(2),
+      paidAmount: '0.00',
+      changeAmount: '0.00',
+      notes: notes.trim() || undefined,
+      completedAt: nowIso,
+      createdAt: nowIso,
+      items: estimationItems,
+      payments: [],
+      cashier: {
+        firstName: sessionUser?.firstName ?? undefined,
+        lastName: sessionUser?.lastName ?? undefined
+      }
+    };
+
+    setLastCompletedSale(estimateSale);
+    setReceiptDialogOpen(true);
+    printSaleReceipt(estimateSale, receiptContext, {
+      billType: 'ESTIMATION',
+      vatEnabled,
+      ioLabel: 'ESTIMATE'
+    });
+    setMessage(`Estimation bill ${estimateSale.saleNumber} generated.`);
+    setError(null);
+  };
+
   const checkout = async () => {
     if (!currentCart.length) {
       setError('Add at least one item before checkout.');
@@ -219,6 +357,11 @@ export default function PosPage() {
 
     setIsSubmitting(true);
     try {
+      const normalizedNotes = notes.trim();
+      const composedNotes = [normalizedNotes, vatEnabled ? '' : 'WITHOUT_VAT_BILL']
+        .filter(Boolean)
+        .join(' | ');
+
       const sale = await apiRequest<PosSale>('/sales', {
         method: 'POST',
         body: JSON.stringify({
@@ -229,18 +372,27 @@ export default function PosPage() {
           payments: checkoutPayments,
           customerName: customerName.trim() || undefined,
           customerPhone: customerPhone.trim() || undefined,
-          notes: notes.trim() || undefined,
+          notes: composedNotes || undefined,
           taxAmount: tax,
           discountAmount: clampedDiscount
         })
       });
 
-      setMessage(`Bill ${sale.saleNumber} completed and synced.`);
+      const enrichedSale = enrichSaleWithCartMetadata({
+        ...sale,
+        billType: 'SALE'
+      });
+
+      setMessage(`Bill ${enrichedSale.saleNumber} completed and synced.`);
       setError(null);
-      setLastCompletedSale(sale);
+      setLastCompletedSale(enrichedSale);
       setReceiptDialogOpen(true);
       if (autoPrintReceipt) {
-        printSaleReceipt(sale, receiptContext);
+        printSaleReceipt(enrichedSale, receiptContext, {
+          billType: 'SALE',
+          vatEnabled,
+          ioLabel: 'OUT'
+        });
       }
       clear();
       resetBillingState();
@@ -265,6 +417,8 @@ export default function PosPage() {
               productId: product.id,
               name: product.name,
               sku: product.sku,
+              categoryName: product.category?.name ?? null,
+              hsCode: product.hsCode ?? null,
               price: Number(product.price)
             })
           }
@@ -331,6 +485,7 @@ export default function PosPage() {
           subtotal={subtotal}
           tax={tax}
           total={total}
+          taxLabel={vatEnabled ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT (Disabled)'}
           onUpdateQuantity={updateQuantity}
           onRemove={removeItem}
           onClear={clear}
@@ -350,6 +505,9 @@ export default function PosPage() {
           onNotesChange={setNotes}
           discountAmount={discountAmount}
           onDiscountAmountChange={setDiscountAmount}
+          vatEnabled={vatEnabled}
+          onVatEnabledChange={setVatEnabled}
+          taxRatePercent={taxRatePercent}
           subtotal={subtotal}
           tax={tax}
           total={total}
@@ -391,6 +549,8 @@ export default function PosPage() {
           changeAmount={changeAmount}
           isSubmitting={isSubmitting}
           onCheckout={checkout}
+          onPrintEstimation={printEstimation}
+          canPrintEstimation={currentCart.length > 0}
         />
 
         <RecentBills

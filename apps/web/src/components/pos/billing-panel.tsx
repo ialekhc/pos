@@ -24,6 +24,9 @@ export function BillingPanel({
   onNotesChange,
   discountAmount,
   onDiscountAmountChange,
+  vatEnabled,
+  onVatEnabledChange,
+  taxRatePercent,
   subtotal,
   tax,
   total,
@@ -42,7 +45,9 @@ export function BillingPanel({
   balanceDue,
   changeAmount,
   isSubmitting,
-  onCheckout
+  onCheckout,
+  onPrintEstimation,
+  canPrintEstimation
 }: {
   customerName: string;
   customerPhone: string;
@@ -52,6 +57,9 @@ export function BillingPanel({
   onNotesChange: (value: string) => void;
   discountAmount: number;
   onDiscountAmountChange: (value: number) => void;
+  vatEnabled: boolean;
+  onVatEnabledChange: (value: boolean) => void;
+  taxRatePercent: number;
   subtotal: number;
   tax: number;
   total: number;
@@ -71,6 +79,8 @@ export function BillingPanel({
   changeAmount: number;
   isSubmitting: boolean;
   onCheckout: () => void;
+  onPrintEstimation: () => void;
+  canPrintEstimation: boolean;
 }) {
   return (
     <div className="space-y-4 rounded-xl border bg-card p-4">
@@ -84,11 +94,11 @@ export function BillingPanel({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Customer Name (Optional)</label>
+          <label className="text-xs font-medium text-muted-foreground">Party Name (Optional)</label>
           <Input value={customerName} onChange={(event) => onCustomerNameChange(event.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Customer Phone (Optional)</label>
+          <label className="text-xs font-medium text-muted-foreground">Party Phone (Optional)</label>
           <Input value={customerPhone} onChange={(event) => onCustomerPhoneChange(event.target.value)} />
         </div>
       </div>
@@ -105,7 +115,7 @@ export function BillingPanel({
 
       <div className="space-y-2 border-y py-3">
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Order Discount</label>
+          <label className="text-xs font-medium text-muted-foreground">Party-wise Discount</label>
           <Input
             type="number"
             step="0.01"
@@ -116,13 +126,35 @@ export function BillingPanel({
           />
         </div>
 
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">VAT Mode</label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={vatEnabled ? 'default' : 'outline'}
+              onClick={() => onVatEnabledChange(true)}
+            >
+              VAT Enabled
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={!vatEnabled ? 'default' : 'outline'}
+              onClick={() => onVatEnabledChange(false)}
+            >
+              Without VAT Bill
+            </Button>
+          </div>
+        </div>
+
         <div className="grid gap-2 text-sm">
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Tax (5%)</span>
+            <span>{vatEnabled ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT (Disabled)'}</span>
             <span>${tax.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between text-base font-semibold">
@@ -239,9 +271,19 @@ export function BillingPanel({
         </div>
       </div>
 
-      <Button className="w-full" onClick={onCheckout} disabled={isSubmitting}>
-        {isSubmitting ? 'Completing Sale...' : 'Generate Bill & Complete Sale'}
-      </Button>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={onPrintEstimation}
+          disabled={!canPrintEstimation || isSubmitting}
+        >
+          Print Estimation Bill
+        </Button>
+        <Button className="w-full" onClick={onCheckout} disabled={isSubmitting}>
+          {isSubmitting ? 'Completing Sale...' : 'Generate Bill & Complete Sale'}
+        </Button>
+      </div>
     </div>
   );
 }

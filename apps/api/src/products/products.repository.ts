@@ -16,7 +16,8 @@ export class ProductsRepository {
               OR: [
                 { name: { contains: search, mode: 'insensitive' } },
                 { sku: { contains: search, mode: 'insensitive' } },
-                { barcode: { contains: search, mode: 'insensitive' } }
+                { barcode: { contains: search, mode: 'insensitive' } },
+                { hsCode: { contains: search, mode: 'insensitive' } }
               ]
             }
           : {})

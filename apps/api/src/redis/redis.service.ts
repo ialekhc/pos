@@ -5,33 +5,74 @@ import Redis from 'ioredis';
 @Injectable()
 export class RedisService {
   private readonly logger = new Logger(RedisService.name);
-  private readonly client: Redis;
+  private readonly client: Redis | null;
+  private readonly redisConfigured: boolean;
+  private hasLoggedFallback = false;
 
   constructor(private readonly configService: ConfigService) {
-    this.client = new Redis(this.configService.get<string>('redis.url') ?? 'redis://localhost:6379', {
-      maxRetriesPerRequest: 3
-    });
+    const redisUrl = this.configService.get<string>('redis.url');
 
-    this.client.on('error', (error) => {
-      this.logger.error(`Redis error: ${error.message}`);
-    });
-  }
-
-  async get(key: string): Promise<string | null> {
-    return this.client.get(key);
-  }
-
-  async set(key: string, value: string, ttlInSeconds?: number): Promise<void> {
-    if (ttlInSeconds) {
-      await this.client.set(key, value, 'EX', ttlInSeconds);
+    if (!redisUrl) {
+      this.redisConfigured = false;
+      this.client = null;
+      this.logger.warn('REDIS_URL is not configured. Cache/session fallback mode is enabled.');
       return;
     }
 
-    await this.client.set(key, value);
+    this.redisConfigured = true;
+    this.client = new Redis(redisUrl, {
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false
+    });
+
+    this.client.on('error', (error) => {
+      this.logFallbackOnce(error);
+    });
+  }
+
+  private logFallbackOnce(error?: unknown) {
+    if (this.hasLoggedFallback) {
+      return;
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Redis unavailable. Falling back to non-cached mode.';
+    this.logger.warn(message);
+    this.hasLoggedFallback = true;
+  }
+
+  private async withFallback<T>(operation: (client: Redis) => Promise<T>, fallback: T): Promise<T> {
+    if (!this.client || !this.redisConfigured) {
+      return fallback;
+    }
+
+    try {
+      return await operation(this.client);
+    } catch (error) {
+      this.logFallbackOnce(error);
+      return fallback;
+    }
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.withFallback((client) => client.get(key), null);
+  }
+
+  async set(key: string, value: string, ttlInSeconds?: number): Promise<void> {
+    await this.withFallback(async (client) => {
+      if (ttlInSeconds) {
+        await client.set(key, value, 'EX', ttlInSeconds);
+        return;
+      }
+
+      await client.set(key, value);
+    }, undefined);
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    await this.withFallback(async (client) => {
+      await client.del(key);
+    }, undefined);
   }
 
   async getJson<T>(key: string): Promise<T | null> {
@@ -40,7 +81,11 @@ export class RedisService {
       return null;
     }
 
-    return JSON.parse(value) as T;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
   }
 
   async setJson<T>(key: string, value: T, ttlInSeconds?: number): Promise<void> {
@@ -48,6 +93,10 @@ export class RedisService {
   }
 
   async ping(): Promise<string> {
-    return this.client.ping();
+    if (!this.client || !this.redisConfigured) {
+      return 'DISABLED';
+    }
+
+    return this.withFallback((client) => client.ping(), 'DOWN');
   }
 }

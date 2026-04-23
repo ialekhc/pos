@@ -578,7 +578,8 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       update: {
         stockQuantity: 120,
         price: new Prisma.Decimal(2.5),
-        costPrice: new Prisma.Decimal(1.2)
+        costPrice: new Prisma.Decimal(1.2),
+        hsCode: '2202.10'
       },
       create: {
         tenantId: tenant.id,
@@ -586,6 +587,7 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
         name: 'Cola 500ml',
         sku: 'COLA-500',
         barcode: `BC-${tenant.slug}-COLA-500`,
+        hsCode: '2202.10',
         price: new Prisma.Decimal(2.5),
         costPrice: new Prisma.Decimal(1.2),
         stockQuantity: 120,
@@ -603,7 +605,8 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       update: {
         stockQuantity: 90,
         price: new Prisma.Decimal(1.8),
-        costPrice: new Prisma.Decimal(0.9)
+        costPrice: new Prisma.Decimal(0.9),
+        hsCode: '1905.90'
       },
       create: {
         tenantId: tenant.id,
@@ -611,6 +614,7 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
         name: 'Potato Chips 50g',
         sku: 'CHIPS-50',
         barcode: `BC-${tenant.slug}-CHIPS-50`,
+        hsCode: '1905.90',
         price: new Prisma.Decimal(1.8),
         costPrice: new Prisma.Decimal(0.9),
         stockQuantity: 90,

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
 type SaleItemComputation = {
@@ -18,11 +18,19 @@ type SaleItemComputation = {
 export class SalesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly saleItemInclude = {
+    product: {
+      include: {
+        category: true
+      }
+    }
+  } as const;
+
   findByTenant(tenantId: string, take?: number) {
     return this.prisma.sale.findMany({
       where: { tenantId },
       include: {
-        items: true,
+        items: { include: this.saleItemInclude },
         payments: true,
         cashier: true
       },
@@ -35,7 +43,7 @@ export class SalesRepository {
     return this.prisma.sale.findUnique({
       where: { id: saleId },
       include: {
-        items: true,
+        items: { include: this.saleItemInclude },
         payments: true,
         cashier: true,
         manager: true,
@@ -154,7 +162,7 @@ export class SalesRepository {
           }
         },
         include: {
-          items: true,
+          items: { include: this.saleItemInclude },
           payments: true
         }
       });
@@ -171,7 +179,7 @@ export class SalesRepository {
         changeAmount: new Prisma.Decimal(changeAmount)
       },
       include: {
-        items: true,
+        items: { include: this.saleItemInclude },
         payments: true,
         cashier: true
       }
@@ -186,7 +194,7 @@ export class SalesRepository {
     return this.prisma.$transaction(async (tx) => {
       const sale = await tx.sale.findUnique({
         where: { id: params.saleId },
-        include: { items: true, payments: true }
+        include: { items: { include: this.saleItemInclude }, payments: true }
       });
 
       if (!sale) {
@@ -264,7 +272,7 @@ export class SalesRepository {
           refundedById: params.actorId,
           refundReason: params.reason
         },
-        include: { items: true, payments: true }
+        include: { items: { include: this.saleItemInclude }, payments: true }
       });
 
       return updatedSale;

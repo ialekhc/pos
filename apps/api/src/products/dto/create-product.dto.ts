@@ -13,6 +13,10 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
+  hsCode?: string;
+
+  @IsOptional()
+  @IsString()
   categoryId?: string;
 
   @IsOptional()

@@ -73,7 +73,7 @@ export class SalesService {
 
     const productsById = new Map(products.map((product) => [product.id, product]));
 
-    const computedItems = dto.items.map((item) => {
+    const computedItemsBase = dto.items.map((item) => {
       const product = productsById.get(item.productId);
       if (!product) {
         throw new NotFoundException(`Product not found: ${item.productId}`);
@@ -83,27 +83,64 @@ export class SalesService {
         throw new ForbiddenException(`Product ${item.productId} belongs to a different tenant.`);
       }
 
-      const baseLine = Number(product.price) * item.quantity;
-      const lineDiscount = item.discountAmount ?? 0;
-      const lineTax = Number((baseLine - lineDiscount) * 0.05);
-      const lineTotal = baseLine - lineDiscount + lineTax;
-
       return {
         productId: product.id,
         quantity: item.quantity,
         unitPrice: Number(product.price),
         costPrice: Number(product.costPrice),
-        discountAmount: lineDiscount,
-        taxAmount: lineTax,
-        lineTotal,
         productName: product.name,
         sku: product.sku
       };
     });
 
-    const subtotal = computedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    const discountAmount = dto.discountAmount ?? computedItems.reduce((sum, item) => sum + item.discountAmount, 0);
-    const taxAmount = dto.taxAmount ?? computedItems.reduce((sum, item) => sum + item.taxAmount, 0);
+    const subtotal = computedItemsBase.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const discountAmountRaw =
+      dto.discountAmount ??
+      dto.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
+    const discountAmount = Math.min(Math.max(discountAmountRaw, 0), subtotal);
+    const taxableSubtotal = Math.max(subtotal - discountAmount, 0);
+    const taxAmount = dto.taxAmount ?? Number((taxableSubtotal * 0.05).toFixed(2));
+    const taxRate = taxableSubtotal > 0 ? taxAmount / taxableSubtotal : 0;
+
+    const computedItems = computedItemsBase.map((item) => {
+      const baseLine = item.unitPrice * item.quantity;
+      const weight = subtotal > 0 ? baseLine / subtotal : 0;
+      const lineDiscount = Number((discountAmount * weight).toFixed(2));
+      const lineTaxableBase = Math.max(baseLine - lineDiscount, 0);
+      const lineTax = Number((lineTaxableBase * taxRate).toFixed(2));
+      const lineTotal = Number((baseLine - lineDiscount + lineTax).toFixed(2));
+
+      return {
+        ...item,
+        discountAmount: lineDiscount,
+        taxAmount: lineTax,
+        lineTotal
+      };
+    });
+
+    if (computedItems.length) {
+      const lastIndex = computedItems.length - 1;
+      const distributedDiscount = computedItems.reduce((sum, item) => sum + item.discountAmount, 0);
+      const distributedTax = computedItems.reduce((sum, item) => sum + item.taxAmount, 0);
+
+      const discountDelta = Number((discountAmount - distributedDiscount).toFixed(2));
+      const taxDelta = Number((taxAmount - distributedTax).toFixed(2));
+
+      if (discountDelta !== 0 || taxDelta !== 0) {
+        const current = computedItems[lastIndex];
+        const baseLine = current.unitPrice * current.quantity;
+        const adjustedDiscount = Number((current.discountAmount + discountDelta).toFixed(2));
+        const adjustedTax = Number((current.taxAmount + taxDelta).toFixed(2));
+
+        computedItems[lastIndex] = {
+          ...current,
+          discountAmount: adjustedDiscount,
+          taxAmount: adjustedTax,
+          lineTotal: Number((baseLine - adjustedDiscount + adjustedTax).toFixed(2))
+        };
+      }
+    }
+
     const totalAmount = subtotal - discountAmount + taxAmount;
 
     const sale = await this.salesRepository.createSaleWithStockReduction({

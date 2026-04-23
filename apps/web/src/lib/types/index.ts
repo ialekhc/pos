@@ -19,9 +19,12 @@ export type AuthPayload = {
 
 export type Product = {
   id: string;
+  categoryId?: string | null;
   name: string;
   sku: string;
   barcode?: string | null;
+  hsCode?: string | null;
+  category?: { id: string; name: string } | null;
   price: string;
   costPrice: string;
   stockQuantity: number;
@@ -41,11 +44,19 @@ export type PosSaleItem = {
   productId: string;
   productName: string;
   sku: string;
+  categoryName?: string | null;
+  hsCode?: string | null;
+  ioLabel?: 'OUT' | 'IN' | 'ESTIMATE';
   quantity: number;
   unitPrice: string;
   discountAmount: string;
   taxAmount: string;
   lineTotal: string;
+  product?: {
+    id: string;
+    hsCode?: string | null;
+    category?: { id: string; name: string } | null;
+  } | null;
 };
 
 export type PosPayment = {
@@ -62,6 +73,7 @@ export type PosPayment = {
 export type PosSale = {
   id: string;
   saleNumber: string;
+  billType?: 'SALE' | 'ESTIMATION';
   status: 'COMPLETED' | 'REFUNDED' | 'CANCELED';
   source: 'POS' | 'WEB' | 'API';
   customerName?: string | null;

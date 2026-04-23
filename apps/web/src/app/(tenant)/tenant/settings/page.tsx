@@ -7,19 +7,50 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiRequest } from '@/lib/api/client';
 
+type SettingsForm = {
+  businessName: string;
+  taxRate: number;
+  currency: string;
+  timezone: string;
+  receiptFooter: string;
+};
+
+function parseRequestError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return 'Request failed';
+  }
+
+  const fallback = error.message || 'Request failed';
+  try {
+    const parsed = JSON.parse(error.message) as { message?: string | string[] };
+    if (Array.isArray(parsed.message)) {
+      return parsed.message.join(', ');
+    }
+    if (typeof parsed.message === 'string') {
+      return parsed.message;
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function SettingsPage() {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SettingsForm>({
     businessName: '',
     taxRate: 5,
     currency: 'USD',
     timezone: 'UTC',
     receiptFooter: 'Thank you for shopping with us!'
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiRequest<any>('/settings')
+    setLoading(true);
+    apiRequest<Partial<SettingsForm>>('/settings')
       .then((data) => {
         if (!data) {
           return;
@@ -28,72 +59,139 @@ export default function SettingsPage() {
         setForm({
           businessName: data.businessName ?? '',
           taxRate: Number(data.taxRate ?? 0),
-          currency: data.currency ?? 'USD',
+          currency: (data.currency ?? 'USD').toUpperCase(),
           timezone: data.timezone ?? 'UTC',
           receiptFooter: data.receiptFooter ?? ''
         });
       })
       .catch((requestError) => {
-        setError(requestError instanceof Error ? requestError.message : 'Failed to load settings');
+        setError(parseRequestError(requestError));
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
 
-    await apiRequest('/settings', {
-      method: 'PATCH',
-      body: JSON.stringify(form)
-    });
-
-    setMessage('Settings saved successfully.');
+    setSaving(true);
     setError(null);
+    setMessage(null);
+    try {
+      await apiRequest('/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...form,
+          currency: form.currency.trim().toUpperCase(),
+          timezone: form.timezone.trim(),
+          businessName: form.businessName.trim(),
+          receiptFooter: form.receiptFooter.trim()
+        })
+      });
+
+      setMessage('Settings saved successfully.');
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setSaving(false);
+    }
   };
 
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading settings...</p>;
+  }
+
   return (
-    <div className="space-y-4">
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+    <div className="space-y-6">
+      {error ? <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
       {message ? <p className="rounded-md bg-primary/10 p-2 text-sm text-primary">{message}</p> : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Business Settings</CardTitle>
-          <CardDescription>Manage tax, receipt, currency, timezone, and brand defaults.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-3 md:grid-cols-2" onSubmit={submit}>
-            <Input
-              placeholder="Business name"
-              value={form.businessName}
-              onChange={(event) => setForm((state) => ({ ...state, businessName: event.target.value }))}
-            />
-            <Input
-              type="number"
-              placeholder="Tax rate"
-              value={form.taxRate || ''}
-              onChange={(event) => setForm((state) => ({ ...state, taxRate: Number(event.target.value || 0) }))}
-            />
-            <Input
-              placeholder="Currency"
-              value={form.currency}
-              onChange={(event) => setForm((state) => ({ ...state, currency: event.target.value }))}
-            />
-            <Input
-              placeholder="Timezone"
-              value={form.timezone}
-              onChange={(event) => setForm((state) => ({ ...state, timezone: event.target.value }))}
-            />
-            <div className="md:col-span-2">
-              <Textarea
-                placeholder="Receipt footer"
-                value={form.receiptFooter}
-                onChange={(event) => setForm((state) => ({ ...state, receiptFooter: event.target.value }))}
+      <form className="space-y-4" onSubmit={submit}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Business Profile</CardTitle>
+            <CardDescription>Core business information shown across the workspace and receipts.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Business Name</label>
+              <Input
+                placeholder="Sunrise Mart"
+                value={form.businessName}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, businessName: event.target.value }))
+                }
+                required
               />
             </div>
-            <Button className="md:col-span-2">Save Settings</Button>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Tax & Region</CardTitle>
+            <CardDescription>Configure tax behavior, currency, and local time settings.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Tax Rate (%)</label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={form.taxRate || ''}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, taxRate: Number(event.target.value || 0) }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Currency Code</label>
+              <Input
+                placeholder="USD"
+                value={form.currency}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Timezone</label>
+              <Input
+                placeholder="UTC"
+                value={form.timezone}
+                onChange={(event) => setForm((state) => ({ ...state, timezone: event.target.value }))}
+                required
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Receipt Settings</CardTitle>
+            <CardDescription>Customize what appears at the bottom of every printed receipt.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Receipt Footer</label>
+              <Textarea
+                rows={3}
+                placeholder="Thank you for shopping with us!"
+                value={form.receiptFooter}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, receiptFooter: event.target.value }))
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button disabled={saving}>{saving ? 'Saving...' : 'Save Settings'}</Button>
+      </form>
     </div>
   );
 }

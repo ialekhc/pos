@@ -1,61 +1,436 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { DataTable } from '@/components/layout/data-table';
 import { apiRequest } from '@/lib/api/client';
 import { Product } from '@/lib/types';
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [error, setError] = useState<string | null>(null);
+type Category = {
+  id: string;
+  name: string;
+  description?: string | null;
+};
 
-  const [form, setForm] = useState({
+type ProductDraft = {
+  name: string;
+  sku: string;
+  categoryId: string;
+  hsCode: string;
+  price: number;
+  costPrice: number;
+  stockQuantity: number;
+  lowStockThreshold: number;
+};
+
+function createDefaultProductDraft(): ProductDraft {
+  return {
     name: '',
     sku: '',
+    categoryId: '',
+    hsCode: '',
     price: 0,
     costPrice: 0,
     stockQuantity: 0,
     lowStockThreshold: 10
+  };
+}
+
+function parseRequestError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return 'Request failed';
+  }
+
+  const fallback = error.message || 'Request failed';
+  try {
+    const parsed = JSON.parse(error.message) as { message?: string | string[] };
+    if (Array.isArray(parsed.message)) {
+      return parsed.message.join(', ');
+    }
+    if (typeof parsed.message === 'string') {
+      return parsed.message;
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
+  const [busyCategoryId, setBusyCategoryId] = useState<string | null>(null);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [isUpdatingProduct, setIsUpdatingProduct] = useState(false);
+  const [busyProductId, setBusyProductId] = useState<string | null>(null);
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    description: ''
   });
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryEditForm, setCategoryEditForm] = useState({
+    name: '',
+    description: ''
+  });
+
+  const [form, setForm] = useState<ProductDraft>(createDefaultProductDraft());
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productEditForm, setProductEditForm] = useState<ProductDraft>(createDefaultProductDraft());
+
+  const categoryMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
 
   const loadProducts = async () => {
     try {
       const data = await apiRequest<Product[]>('/products');
       setProducts(data);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load products');
+      setError(parseRequestError(requestError));
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const data = await apiRequest<Category[]>('/categories');
+      setCategories(data);
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    }
+  };
+
+  const refreshAll = async () => {
+    await Promise.all([loadProducts(), loadCategories()]);
+  };
+
   useEffect(() => {
-    loadProducts();
+    void refreshAll();
   }, []);
+
+  const createCategory = async (event: FormEvent) => {
+    event.preventDefault();
+    const name = categoryForm.name.trim();
+    if (!name) {
+      setError('Category name is required.');
+      return;
+    }
+
+    setIsCreatingCategory(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const created = await apiRequest<Category>('/categories', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          description: categoryForm.description.trim() || undefined
+        })
+      });
+
+      await loadCategories();
+      setForm((state) => ({ ...state, categoryId: created.id }));
+      setCategoryForm({ name: '', description: '' });
+      setNotice(`Category "${created.name}" created.`);
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
+
+  const startEditCategory = (category: Category) => {
+    setEditingCategoryId(category.id);
+    setCategoryEditForm({
+      name: category.name,
+      description: category.description ?? ''
+    });
+    setError(null);
+    setNotice(null);
+  };
+
+  const cancelCategoryEdit = () => {
+    setEditingCategoryId(null);
+    setCategoryEditForm({ name: '', description: '' });
+  };
+
+  const updateCategory = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingCategoryId) {
+      return;
+    }
+
+    setIsUpdatingCategory(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await apiRequest(`/categories/${editingCategoryId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: categoryEditForm.name.trim() || undefined,
+          description: categoryEditForm.description.trim() || undefined
+        })
+      });
+      await refreshAll();
+      cancelCategoryEdit();
+      setNotice('Category updated.');
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setIsUpdatingCategory(false);
+    }
+  };
+
+  const removeCategory = async (category: Category) => {
+    const confirmed = window.confirm(
+      `Delete category "${category.name}"? Products currently linked to it may become uncategorized.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyCategoryId(category.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await apiRequest(`/categories/${category.id}`, {
+        method: 'DELETE'
+      });
+      await refreshAll();
+      if (editingCategoryId === category.id) {
+        cancelCategoryEdit();
+      }
+      if (form.categoryId === category.id) {
+        setForm((state) => ({ ...state, categoryId: '' }));
+      }
+      if (productEditForm.categoryId === category.id) {
+        setProductEditForm((state) => ({ ...state, categoryId: '' }));
+      }
+      setNotice('Category deleted.');
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setBusyCategoryId(null);
+    }
+  };
 
   const createProduct = async (event: FormEvent) => {
     event.preventDefault();
+    setIsCreatingProduct(true);
+    setError(null);
+    setNotice(null);
 
-    await apiRequest('/products', {
-      method: 'POST',
-      body: JSON.stringify(form)
-    });
+    try {
+      await apiRequest('/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...form,
+          categoryId: form.categoryId || undefined,
+          hsCode: form.hsCode.trim() || undefined
+        })
+      });
 
-    setForm({
-      name: '',
-      sku: '',
-      price: 0,
-      costPrice: 0,
-      stockQuantity: 0,
-      lowStockThreshold: 10
+      setForm(createDefaultProductDraft());
+      await loadProducts();
+      setNotice('Product created.');
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setIsCreatingProduct(false);
+    }
+  };
+
+  const startEditProduct = (product: Product) => {
+    setEditingProductId(product.id);
+    setProductEditForm({
+      name: product.name,
+      sku: product.sku,
+      categoryId: product.categoryId ?? product.category?.id ?? '',
+      hsCode: product.hsCode ?? '',
+      price: Number(product.price),
+      costPrice: Number(product.costPrice),
+      stockQuantity: product.stockQuantity,
+      lowStockThreshold: product.lowStockThreshold
     });
-    await loadProducts();
+    setError(null);
+    setNotice(null);
+  };
+
+  const cancelProductEdit = () => {
+    setEditingProductId(null);
+    setProductEditForm(createDefaultProductDraft());
+  };
+
+  const updateProduct = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingProductId) {
+      return;
+    }
+
+    setIsUpdatingProduct(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await apiRequest(`/products/${editingProductId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...productEditForm,
+          categoryId: productEditForm.categoryId || undefined,
+          hsCode: productEditForm.hsCode.trim() || undefined
+        })
+      });
+      await loadProducts();
+      cancelProductEdit();
+      setNotice('Product updated.');
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setIsUpdatingProduct(false);
+    }
+  };
+
+  const removeProduct = async (product: Product) => {
+    const confirmed = window.confirm(`Delete product "${product.name}"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyProductId(product.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await apiRequest(`/products/${product.id}`, {
+        method: 'DELETE'
+      });
+      await loadProducts();
+      if (editingProductId === product.id) {
+        cancelProductEdit();
+      }
+      setNotice('Product deleted.');
+    } catch (requestError) {
+      setError(parseRequestError(requestError));
+    } finally {
+      setBusyProductId(null);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
+      {notice ? <p className="rounded-md bg-primary/10 p-2 text-sm text-primary">{notice}</p> : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Create Category</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={createCategory}>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Category Name</label>
+              <Input
+                placeholder="Beverages"
+                value={categoryForm.name}
+                onChange={(event) =>
+                  setCategoryForm((state) => ({ ...state, name: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
+              <Textarea
+                rows={1}
+                placeholder="Short category note"
+                value={categoryForm.description}
+                onChange={(event) =>
+                  setCategoryForm((state) => ({ ...state, description: event.target.value }))
+                }
+              />
+            </div>
+            <Button className="md:col-span-2" disabled={isCreatingCategory}>
+              {isCreatingCategory ? 'Creating Category...' : 'Add Category'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {editingCategoryId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-3 md:grid-cols-2" onSubmit={updateCategory}>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Category Name</label>
+                <Input
+                  value={categoryEditForm.name}
+                  onChange={(event) =>
+                    setCategoryEditForm((state) => ({ ...state, name: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
+                <Textarea
+                  rows={1}
+                  value={categoryEditForm.description}
+                  onChange={(event) =>
+                    setCategoryEditForm((state) => ({ ...state, description: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="md:col-span-2 flex flex-wrap gap-2">
+                <Button disabled={isUpdatingCategory}>
+                  {isUpdatingCategory ? 'Saving...' : 'Save Category Changes'}
+                </Button>
+                <Button type="button" variant="outline" onClick={cancelCategoryEdit}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Category List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            headers={['Name', 'Description', 'Actions']}
+            rows={categories.map((category) => [
+              category.name,
+              category.description ?? '-',
+              <div key={`${category.id}-actions`} className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => startEditCategory(category)}>
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busyCategoryId === category.id}
+                  onClick={() => removeCategory(category)}
+                >
+                  {busyCategoryId === category.id ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            ])}
+            emptyMessage="No categories found."
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -63,66 +438,247 @@ export default function ProductsPage() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={createProduct}>
-            <Input
-              placeholder="Product name"
-              value={form.name}
-              onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
-              required
-            />
-            <Input
-              placeholder="SKU"
-              value={form.sku}
-              onChange={(event) => setForm((state) => ({ ...state, sku: event.target.value }))}
-              required
-            />
-            <Input
-              type="number"
-              placeholder="Price"
-              value={form.price || ''}
-              onChange={(event) => setForm((state) => ({ ...state, price: Number(event.target.value || 0) }))}
-              required
-            />
-            <Input
-              type="number"
-              placeholder="Cost price"
-              value={form.costPrice || ''}
-              onChange={(event) =>
-                setForm((state) => ({ ...state, costPrice: Number(event.target.value || 0) }))
-              }
-              required
-            />
-            <Input
-              type="number"
-              placeholder="Opening stock"
-              value={form.stockQuantity || ''}
-              onChange={(event) =>
-                setForm((state) => ({ ...state, stockQuantity: Number(event.target.value || 0) }))
-              }
-            />
-            <Input
-              type="number"
-              placeholder="Low stock threshold"
-              value={form.lowStockThreshold || ''}
-              onChange={(event) =>
-                setForm((state) => ({ ...state, lowStockThreshold: Number(event.target.value || 0) }))
-              }
-            />
-            <Button className="md:col-span-3">Add Product</Button>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Product Name</label>
+              <Input
+                value={form.name}
+                onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">SKU</label>
+              <Input
+                value={form.sku}
+                onChange={(event) => setForm((state) => ({ ...state, sku: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Category</label>
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={form.categoryId}
+                onChange={(event) => setForm((state) => ({ ...state, categoryId: event.target.value }))}
+              >
+                <option value="">No category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">HS Code (Optional)</label>
+              <Input
+                value={form.hsCode}
+                onChange={(event) => setForm((state) => ({ ...state, hsCode: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Price</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.price || ''}
+                onChange={(event) => setForm((state) => ({ ...state, price: Number(event.target.value || 0) }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.costPrice || ''}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, costPrice: Number(event.target.value || 0) }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Opening Stock</label>
+              <Input
+                type="number"
+                min={0}
+                value={form.stockQuantity || ''}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, stockQuantity: Number(event.target.value || 0) }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Low Stock Threshold</label>
+              <Input
+                type="number"
+                min={0}
+                value={form.lowStockThreshold || ''}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, lowStockThreshold: Number(event.target.value || 0) }))
+                }
+              />
+            </div>
+            <Button className="md:col-span-3" disabled={isCreatingProduct}>
+              {isCreatingProduct ? 'Adding Product...' : 'Add Product'}
+            </Button>
           </form>
         </CardContent>
       </Card>
 
-      <DataTable
-        headers={['Name', 'SKU', 'Price', 'Stock', 'Threshold', 'Status']}
-        rows={products.map((product) => [
-          product.name,
-          product.sku,
-          `$${Number(product.price).toFixed(2)}`,
-          product.stockQuantity,
-          product.lowStockThreshold,
-          product.status
-        ])}
-      />
+      {editingProductId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Product</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-3 md:grid-cols-3" onSubmit={updateProduct}>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Product Name</label>
+                <Input
+                  value={productEditForm.name}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, name: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">SKU</label>
+                <Input
+                  value={productEditForm.sku}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, sku: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Category</label>
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={productEditForm.categoryId}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, categoryId: event.target.value }))
+                  }
+                >
+                  <option value="">No category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">HS Code (Optional)</label>
+                <Input
+                  value={productEditForm.hsCode}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, hsCode: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Price</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={productEditForm.price || ''}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, price: Number(event.target.value || 0) }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={productEditForm.costPrice || ''}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, costPrice: Number(event.target.value || 0) }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Stock Quantity</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={productEditForm.stockQuantity || ''}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({ ...state, stockQuantity: Number(event.target.value || 0) }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Low Stock Threshold</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={productEditForm.lowStockThreshold || ''}
+                  onChange={(event) =>
+                    setProductEditForm((state) => ({
+                      ...state,
+                      lowStockThreshold: Number(event.target.value || 0)
+                    }))
+                  }
+                />
+              </div>
+              <div className="md:col-span-3 flex flex-wrap gap-2">
+                <Button disabled={isUpdatingProduct}>
+                  {isUpdatingProduct ? 'Saving...' : 'Save Product Changes'}
+                </Button>
+                <Button type="button" variant="outline" onClick={cancelProductEdit}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Product List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            headers={['Name', 'SKU', 'Category', 'HS Code', 'Price', 'Stock', 'Threshold', 'Status', 'Actions']}
+            rows={products.map((product) => [
+              product.name,
+              product.sku,
+              categoryMap.get(product.categoryId ?? '')?.name ?? product.category?.name ?? '-',
+              product.hsCode ?? '-',
+              `$${Number(product.price).toFixed(2)}`,
+              product.stockQuantity,
+              product.lowStockThreshold,
+              product.status,
+              <div key={`${product.id}-actions`} className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => startEditProduct(product)}>
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busyProductId === product.id}
+                  onClick={() => removeProduct(product)}
+                >
+                  {busyProductId === product.id ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            ])}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

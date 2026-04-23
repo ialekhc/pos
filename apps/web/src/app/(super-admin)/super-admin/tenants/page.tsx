@@ -34,9 +34,12 @@ export default function SuperAdminTenantsPage() {
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [assignPlanByTenant, setAssignPlanByTenant] = useState<Record<string, string>>({});
+  const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdatingTenant, setIsUpdatingTenant] = useState(false);
+  const [busyTenantId, setBusyTenantId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -45,6 +48,13 @@ export default function SuperAdminTenantsPage() {
     currency: 'AUD',
     domain: '',
     initialPlanId: ''
+  });
+  const [editForm, setEditForm] = useState({
+    name: '',
+    slug: '',
+    timezone: '',
+    currency: '',
+    domain: ''
   });
 
   const planOptions = useMemo(
@@ -149,6 +159,87 @@ export default function SuperAdminTenantsPage() {
     }
   };
 
+  const startEditTenant = (tenant: TenantRow) => {
+    setEditingTenantId(tenant.id);
+    setEditForm({
+      name: tenant.name,
+      slug: tenant.slug,
+      timezone: tenant.timezone,
+      currency: tenant.currency,
+      domain: tenant.domain ?? ''
+    });
+    setError(null);
+    setMessage(null);
+  };
+
+  const cancelTenantEdit = () => {
+    setEditingTenantId(null);
+    setEditForm({
+      name: '',
+      slug: '',
+      timezone: '',
+      currency: '',
+      domain: ''
+    });
+  };
+
+  const updateTenant = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingTenantId) {
+      return;
+    }
+
+    setIsUpdatingTenant(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await apiRequest(`/tenants/${editingTenantId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          slug: editForm.slug.trim().toLowerCase(),
+          timezone: editForm.timezone.trim(),
+          currency: editForm.currency.trim().toUpperCase(),
+          domain: editForm.domain.trim() || undefined
+        })
+      });
+      setMessage('Tenant updated successfully.');
+      await loadData();
+      cancelTenantEdit();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to update tenant');
+    } finally {
+      setIsUpdatingTenant(false);
+    }
+  };
+
+  const removeTenant = async (tenant: TenantRow) => {
+    const confirmed = window.confirm(
+      `Deactivate tenant "${tenant.name}" (${tenant.slug})? This will disable tenant access.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyTenantId(tenant.id);
+    setError(null);
+    setMessage(null);
+    try {
+      await apiRequest(`/tenants/${tenant.id}`, {
+        method: 'DELETE'
+      });
+      if (editingTenantId === tenant.id) {
+        cancelTenantEdit();
+      }
+      setMessage('Tenant deactivated.');
+      await loadData();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to remove tenant');
+    } finally {
+      setBusyTenantId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
@@ -211,6 +302,60 @@ export default function SuperAdminTenantsPage() {
         </CardContent>
       </Card>
 
+      {editingTenantId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Tenant Workspace</CardTitle>
+            <CardDescription>Update tenant identity and regional profile settings.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-3 md:grid-cols-3" onSubmit={updateTenant}>
+              <Input
+                placeholder="Business name"
+                value={editForm.name}
+                onChange={(event) => setEditForm((state) => ({ ...state, name: event.target.value }))}
+                required
+              />
+              <Input
+                placeholder="Slug"
+                value={editForm.slug}
+                onChange={(event) =>
+                  setEditForm((state) => ({ ...state, slug: event.target.value.trim().toLowerCase() }))
+                }
+                required
+              />
+              <Input
+                placeholder="Custom domain (optional)"
+                value={editForm.domain}
+                onChange={(event) => setEditForm((state) => ({ ...state, domain: event.target.value }))}
+              />
+              <Input
+                placeholder="Timezone"
+                value={editForm.timezone}
+                onChange={(event) => setEditForm((state) => ({ ...state, timezone: event.target.value }))}
+                required
+              />
+              <Input
+                placeholder="Currency"
+                value={editForm.currency}
+                onChange={(event) =>
+                  setEditForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))
+                }
+                required
+              />
+              <div className="flex items-end gap-2">
+                <Button disabled={isUpdatingTenant}>
+                  {isUpdatingTenant ? 'Saving...' : 'Save Tenant'}
+                </Button>
+                <Button type="button" variant="outline" onClick={cancelTenantEdit}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Tenant Operations</CardTitle>
@@ -238,6 +383,9 @@ export default function SuperAdminTenantsPage() {
                 <Button size="sm" variant="outline" onClick={() => setStatus(tenant.id, 'SUSPENDED')}>
                   Suspend
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => startEditTenant(tenant)}>
+                  Edit
+                </Button>
                 <select
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                   value={assignPlanByTenant[tenant.id] ?? ''}
@@ -257,6 +405,14 @@ export default function SuperAdminTenantsPage() {
                 </select>
                 <Button size="sm" onClick={() => assignSubscription(tenant.id)}>
                   Assign Plan
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busyTenantId === tenant.id}
+                  onClick={() => removeTenant(tenant)}
+                >
+                  {busyTenantId === tenant.id ? 'Removing...' : 'Delete'}
                 </Button>
               </div>
             ])}

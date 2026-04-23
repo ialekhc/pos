@@ -7,6 +7,8 @@ type CartLine = {
   productId: string;
   name: string;
   sku: string;
+  categoryName?: string | null;
+  hsCode?: string | null;
   price: number;
   quantity: number;
 };
@@ -16,6 +18,7 @@ export function CartPanel({
   subtotal,
   tax,
   total,
+  taxLabel,
   onUpdateQuantity,
   onRemove,
   onClear,
@@ -25,6 +28,7 @@ export function CartPanel({
   subtotal: number;
   tax: number;
   total: number;
+  taxLabel?: string;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemove: (productId: string) => void;
   onClear: () => void;
@@ -46,6 +50,11 @@ export function CartPanel({
               <div>
                 <p className="text-sm font-semibold">{item.name}</p>
                 <p className="text-xs text-muted-foreground">{item.sku}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {item.categoryName ? `Category: ${item.categoryName}` : 'Category: -'}
+                  {' | '}
+                  {item.hsCode ? `HS: ${item.hsCode}` : 'HS: -'}
+                </p>
               </div>
               <button type="button" onClick={() => onRemove(item.productId)}>
                 <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -80,7 +89,7 @@ export function CartPanel({
           <span>${subtotal.toFixed(2)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span>Tax (5%)</span>
+          <span>{taxLabel ?? 'Tax'}</span>
           <span>${tax.toFixed(2)}</span>
         </div>
         <div className="flex items-center justify-between text-base font-semibold">

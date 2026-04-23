@@ -261,6 +261,7 @@ model Product {
   name             String
   sku              String
   barcode          String?
+  hsCode           String?
   description      String?
   imageUrl         String?
   price            Decimal       @db.Decimal(12, 2)

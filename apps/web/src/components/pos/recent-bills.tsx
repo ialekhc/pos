@@ -87,7 +87,7 @@ export function RecentBills({
                   {selectedBill ? (
                     <div className="space-y-4 text-sm">
                       <div className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2">
-                        <p>Customer: {selectedBill.customerName || '-'}</p>
+                        <p>Party: {selectedBill.customerName || '-'}</p>
                         <p>Phone: {selectedBill.customerPhone || '-'}</p>
                         <p>Status: {selectedBill.status}</p>
                         <p>Completed: {new Date(selectedBill.completedAt).toLocaleString()}</p>
@@ -98,6 +98,7 @@ export function RecentBills({
                           <thead className="bg-muted/60">
                             <tr>
                               <th className="px-3 py-2">Item</th>
+                              <th className="px-3 py-2">I/O</th>
                               <th className="px-3 py-2">Qty</th>
                               <th className="px-3 py-2">Rate</th>
                               <th className="px-3 py-2">Line Total</th>
@@ -106,7 +107,14 @@ export function RecentBills({
                           <tbody>
                             {selectedBill.items.map((item) => (
                               <tr key={item.id} className="border-t">
-                                <td className="px-3 py-2">{item.productName}</td>
+                                <td className="px-3 py-2">
+                                  <div>{item.productName}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Category: {item.categoryName ?? item.product?.category?.name ?? '-'} | HS:{' '}
+                                    {item.hsCode ?? item.product?.hsCode ?? '-'}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">{item.ioLabel ?? 'OUT'}</td>
                                 <td className="px-3 py-2">{item.quantity}</td>
                                 <td className="px-3 py-2">{currency(item.unitPrice)}</td>
                                 <td className="px-3 py-2">{currency(item.lineTotal)}</td>
@@ -118,8 +126,8 @@ export function RecentBills({
 
                       <div className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2">
                         <p>Subtotal: {currency(selectedBill.subtotal)}</p>
-                        <p>Discount: {currency(selectedBill.discountAmount)}</p>
-                        <p>Tax: {currency(selectedBill.taxAmount)}</p>
+                        <p>Party Discount: {currency(selectedBill.discountAmount)}</p>
+                        <p>VAT: {currency(selectedBill.taxAmount)}</p>
                         <p>Total: {currency(selectedBill.totalAmount)}</p>
                         <p>Paid: {currency(selectedBill.paidAmount)}</p>
                         <p>Change: {currency(selectedBill.changeAmount)}</p>
