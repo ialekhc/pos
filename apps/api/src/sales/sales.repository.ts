@@ -21,7 +21,11 @@ export class SalesRepository {
   private readonly saleItemInclude = {
     product: {
       include: {
-        category: true
+        category: {
+          include: {
+            parent: true
+          }
+        }
       }
     }
   } as const;

@@ -67,6 +67,16 @@ function createEstimateNumber() {
   return `EST-${Date.now().toString().slice(-8)}`;
 }
 
+function categoryLabel(category?: { name: string; parent?: { name: string } | null } | null) {
+  if (!category) {
+    return null;
+  }
+  if (category.parent?.name) {
+    return `${category.parent.name} > ${category.name}`;
+  }
+  return category.name;
+}
+
 export default function PosPage() {
   const sessionUser = useSessionStore((state) => state.user);
   const [products, setProducts] = useState<Product[]>([]);
@@ -149,9 +159,14 @@ export default function PosPage() {
 
     const query = search.toLowerCase();
     return products.filter((product) =>
-      [product.name, product.sku, product.barcode ?? '', product.hsCode ?? '', product.category?.name ?? ''].some(
-        (field) => field.toLowerCase().includes(query)
-      )
+      [
+        product.name,
+        product.sku,
+        product.barcode ?? '',
+        product.hsCode ?? '',
+        product.category?.name ?? '',
+        product.category?.parent?.name ?? ''
+      ].some((field) => field.toLowerCase().includes(query))
     );
   }, [products, search]);
 
@@ -185,7 +200,7 @@ export default function PosPage() {
           billType: sale.billType ?? 'SALE',
           items: sale.items.map((item) => ({
             ...item,
-            categoryName: item.categoryName ?? item.product?.category?.name ?? null,
+            categoryName: item.categoryName ?? categoryLabel(item.product?.category) ?? null,
             hsCode: item.hsCode ?? item.product?.hsCode ?? null,
             ioLabel: item.ioLabel ?? 'OUT'
           }))
@@ -239,7 +254,8 @@ export default function PosPage() {
         const cartLine = cartByProductId.get(item.productId);
         return {
           ...item,
-          categoryName: item.categoryName ?? item.product?.category?.name ?? cartLine?.categoryName ?? null,
+          categoryName:
+            item.categoryName ?? categoryLabel(item.product?.category) ?? cartLine?.categoryName ?? null,
           hsCode: item.hsCode ?? item.product?.hsCode ?? cartLine?.hsCode ?? null,
           ioLabel: item.ioLabel ?? 'OUT'
         };
@@ -417,7 +433,7 @@ export default function PosPage() {
               productId: product.id,
               name: product.name,
               sku: product.sku,
-              categoryName: product.category?.name ?? null,
+              categoryName: categoryLabel(product.category) ?? null,
               hsCode: product.hsCode ?? null,
               price: Number(product.price)
             })

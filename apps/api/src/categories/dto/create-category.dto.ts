@@ -6,5 +6,9 @@ export class CreateCategoryDto {
 
   @IsOptional()
   @IsString()
+  parentId?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 }

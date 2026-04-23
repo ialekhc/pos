@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
+import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 
 type TenantOption = {
@@ -45,6 +46,7 @@ export default function SuperAdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('all');
+  const [userSearch, setUserSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +69,30 @@ export default function SuperAdminUsersPage() {
       return true;
     });
   }, [roles]);
+  const userMetrics = useMemo(() => {
+    const total = users.length;
+    const active = users.filter((user) => user.isActive).length;
+    const inactive = total - active;
+    const superAdmins = users.filter((user) => user.role.code === 'SUPER_ADMIN').length;
+
+    return { total, active, inactive, superAdmins };
+  }, [users]);
+  const filteredUsers = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    if (!query) {
+      return users;
+    }
+
+    return users.filter((user) =>
+      [
+        `${user.firstName} ${user.lastName}`,
+        user.email,
+        user.role.code,
+        user.tenant?.name ?? '',
+        user.tenant?.slug ?? ''
+      ].some((value) => value.toLowerCase().includes(query))
+    );
+  }, [users, userSearch]);
 
   const loadTenants = async () => {
     const rows = await apiRequest<TenantOption[]>('/tenants');
@@ -182,6 +208,13 @@ export default function SuperAdminUsersPage() {
       {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
       {message ? <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">{message}</p> : null}
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Total Users" value={userMetrics.total} />
+        <MetricCard title="Active Users" value={userMetrics.active} />
+        <MetricCard title="Inactive Users" value={userMetrics.inactive} />
+        <MetricCard title="Super Admins" value={userMetrics.superAdmins} />
+      </section>
+
       <Card>
         <CardHeader>
           <CardTitle>User Provisioning</CardTitle>
@@ -207,43 +240,57 @@ export default function SuperAdminUsersPage() {
           </div>
 
           <form className="grid gap-3 md:grid-cols-3" onSubmit={createUser}>
-            <Input
-              placeholder="First name"
-              value={form.firstName}
-              onChange={(event) => setForm((state) => ({ ...state, firstName: event.target.value }))}
-              required
-            />
-            <Input
-              placeholder="Last name"
-              value={form.lastName}
-              onChange={(event) => setForm((state) => ({ ...state, lastName: event.target.value }))}
-              required
-            />
-            <Input
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
-              required
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={form.password}
-              onChange={(event) => setForm((state) => ({ ...state, password: event.target.value }))}
-              required
-            />
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={form.role}
-              onChange={(event) => setForm((state) => ({ ...state, role: event.target.value as RoleOption['code'] }))}
-            >
-              {roleOptions.map((role) => (
-                <option key={role.id} value={role.code}>
-                  {role.name} ({role.code})
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">First Name</label>
+              <Input
+                placeholder="Alex"
+                value={form.firstName}
+                onChange={(event) => setForm((state) => ({ ...state, firstName: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Last Name</label>
+              <Input
+                placeholder="Smith"
+                value={form.lastName}
+                onChange={(event) => setForm((state) => ({ ...state, lastName: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Email</label>
+              <Input
+                type="email"
+                placeholder="admin@tenant.local"
+                value={form.email}
+                onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Password</label>
+              <Input
+                type="password"
+                value={form.password}
+                onChange={(event) => setForm((state) => ({ ...state, password: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Role</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.role}
+                onChange={(event) => setForm((state) => ({ ...state, role: event.target.value as RoleOption['code'] }))}
+              >
+                {roleOptions.map((role) => (
+                  <option key={role.id} value={role.code}>
+                    {role.name} ({role.code})
+                  </option>
+                ))}
+              </select>
+            </div>
             <Button disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create User'}</Button>
           </form>
         </CardContent>
@@ -254,10 +301,18 @@ export default function SuperAdminUsersPage() {
           <CardTitle>Users</CardTitle>
           <CardDescription>Activate/deactivate accounts and run operational resets quickly.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="max-w-sm space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Search Users</label>
+            <Input
+              placeholder="Name, email, role, or tenant"
+              value={userSearch}
+              onChange={(event) => setUserSearch(event.target.value)}
+            />
+          </div>
           <DataTable
             headers={['Name', 'Email', 'Role', 'Tenant', 'Status', 'Actions']}
-            rows={users.map((user) => [
+            rows={filteredUsers.map((user) => [
               `${user.firstName} ${user.lastName}`,
               user.email,
               user.role.name,
@@ -274,6 +329,7 @@ export default function SuperAdminUsersPage() {
                 </Button>
               </div>
             ])}
+            emptyMessage="No users found for the current filters."
           />
         </CardContent>
       </Card>

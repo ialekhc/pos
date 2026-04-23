@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
+import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 
 type TenantOption = {
@@ -66,6 +67,15 @@ export default function SuperAdminSubscriptionsPage() {
       })),
     [plans]
   );
+  const metrics = useMemo(() => {
+    const total = subscriptions.length;
+    const active = subscriptions.filter((subscription) => subscription.status === 'ACTIVE').length;
+    const trialing = subscriptions.filter((subscription) => subscription.status === 'TRIALING').length;
+    const pastDue = subscriptions.filter((subscription) => subscription.status === 'PAST_DUE').length;
+    const expired = subscriptions.filter((subscription) => subscription.status === 'EXPIRED').length;
+
+    return { total, active, trialing, pastDue, expired };
+  }, [subscriptions]);
 
   const loadStaticOptions = async () => {
     const [tenantRows, planRows] = await Promise.all([
@@ -138,6 +148,14 @@ export default function SuperAdminSubscriptionsPage() {
       {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
       {message ? <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">{message}</p> : null}
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard title="Total" value={metrics.total} />
+        <MetricCard title="Active" value={metrics.active} />
+        <MetricCard title="Trialing" value={metrics.trialing} />
+        <MetricCard title="Past Due" value={metrics.pastDue} />
+        <MetricCard title="Expired" value={metrics.expired} />
+      </section>
+
       <Card>
         <CardHeader>
           <CardTitle>Assign Subscription</CardTitle>
@@ -145,52 +163,65 @@ export default function SuperAdminSubscriptionsPage() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={assignSubscription}>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={selectedTenantId}
-              onChange={(event) => setSelectedTenantId(event.target.value)}
-              required
-            >
-              <option value="">Select tenant</option>
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name} ({tenant.slug})
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={form.planId}
-              onChange={(event) => setForm((state) => ({ ...state, planId: event.target.value }))}
-              required
-            >
-              <option value="">Select plan</option>
-              {planOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={form.autoRenew ? 'yes' : 'no'}
-              onChange={(event) => setForm((state) => ({ ...state, autoRenew: event.target.value === 'yes' }))}
-            >
-              <option value="yes">Auto Renew: Yes</option>
-              <option value="no">Auto Renew: No</option>
-            </select>
-            <Input
-              type="date"
-              value={form.startsAt}
-              onChange={(event) => setForm((state) => ({ ...state, startsAt: event.target.value }))}
-              placeholder="Start date (optional)"
-            />
-            <Input
-              type="date"
-              value={form.endsAt}
-              onChange={(event) => setForm((state) => ({ ...state, endsAt: event.target.value }))}
-              placeholder="End date (optional)"
-            />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Tenant</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={selectedTenantId}
+                onChange={(event) => setSelectedTenantId(event.target.value)}
+                required
+              >
+                <option value="">Select tenant</option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name} ({tenant.slug})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Plan</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.planId}
+                onChange={(event) => setForm((state) => ({ ...state, planId: event.target.value }))}
+                required
+              >
+                <option value="">Select plan</option>
+                {planOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Auto Renew</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.autoRenew ? 'yes' : 'no'}
+                onChange={(event) => setForm((state) => ({ ...state, autoRenew: event.target.value === 'yes' }))}
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Start Date (Optional)</label>
+              <Input
+                type="date"
+                value={form.startsAt}
+                onChange={(event) => setForm((state) => ({ ...state, startsAt: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">End Date (Optional)</label>
+              <Input
+                type="date"
+                value={form.endsAt}
+                onChange={(event) => setForm((state) => ({ ...state, endsAt: event.target.value }))}
+              />
+            </div>
             <Button disabled={isSubmitting}>{isSubmitting ? 'Assigning...' : 'Assign Subscription'}</Button>
           </form>
         </CardContent>
@@ -203,18 +234,21 @@ export default function SuperAdminSubscriptionsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="max-w-sm">
-            <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={filterTenantId}
-              onChange={(event) => setFilterTenantId(event.target.value)}
-            >
-              <option value="all">All tenants</option>
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name} ({tenant.slug})
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Tenant Filter</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={filterTenantId}
+                onChange={(event) => setFilterTenantId(event.target.value)}
+              >
+                <option value="all">All tenants</option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name} ({tenant.slug})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <DataTable

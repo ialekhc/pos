@@ -27,8 +27,44 @@ export async function apiRequest<T>(path: string, options?: RequestInit): Promis
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
+    const contentType = response.headers.get('content-type') ?? '';
+    let message = `Request failed: ${response.status}`;
+
+    if (contentType.includes('application/json')) {
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string | string[]; error?: string }
+        | null;
+
+      if (payload) {
+        if (Array.isArray(payload.message) && payload.message.length) {
+          message = payload.message.join(', ');
+        } else if (typeof payload.message === 'string' && payload.message.trim()) {
+          message = payload.message;
+        } else if (typeof payload.error === 'string' && payload.error.trim()) {
+          message = payload.error;
+        }
+      }
+    } else {
+      const text = await response.text();
+      if (text.trim()) {
+        try {
+          const parsed = JSON.parse(text) as { message?: string | string[]; error?: string };
+          if (Array.isArray(parsed.message) && parsed.message.length) {
+            message = parsed.message.join(', ');
+          } else if (typeof parsed.message === 'string' && parsed.message.trim()) {
+            message = parsed.message;
+          } else if (typeof parsed.error === 'string' && parsed.error.trim()) {
+            message = parsed.error;
+          } else {
+            message = text;
+          }
+        } catch {
+          message = text;
+        }
+      }
+    }
+
+    throw new Error(message);
   }
 
   return (await response.json()) as T;

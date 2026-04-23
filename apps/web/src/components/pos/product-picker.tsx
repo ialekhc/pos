@@ -16,6 +16,13 @@ export function ProductPicker({
   onSearchChange: (value: string) => void;
   onAdd: (product: Product) => void;
 }) {
+  const getCategoryLabel = (product: Product) => {
+    if (product.category?.parent?.name) {
+      return `${product.category.parent.name} > ${product.category.name}`;
+    }
+    return product.category?.name ?? '-';
+  };
+
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-4 flex items-center gap-2">
@@ -38,7 +45,7 @@ export function ProductPicker({
             <p className="font-semibold">{product.name}</p>
             <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
             <p className="text-xs text-muted-foreground">
-              Category: {product.category?.name ?? '-'} | HS: {product.hsCode ?? '-'}
+              Category: {getCategoryLabel(product)} | HS: {product.hsCode ?? '-'}
             </p>
             <p className="mt-2 text-sm font-medium">${Number(product.price).toFixed(2)}</p>
             <p className="text-xs text-muted-foreground">Stock: {product.stockQuantity}</p>

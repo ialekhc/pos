@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
+import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 
 type PlanFeature = {
@@ -84,6 +85,16 @@ export default function SuperAdminPlansPage() {
   });
 
   const selectedPlan = useMemo(() => plans.find((plan) => plan.id === selectedPlanId) ?? null, [plans, selectedPlanId]);
+  const metrics = useMemo(() => {
+    const totalPlans = plans.length;
+    const avgMonthlyPrice = totalPlans
+      ? plans.reduce((sum, plan) => sum + Number(plan.monthlyPrice || 0), 0) / totalPlans
+      : 0;
+    const selectedEnabledFeatures = selectedPlan?.planFeatures.filter((feature) => feature.enabled).length ?? 0;
+    const selectedTotalFeatures = selectedPlan?.planFeatures.length ?? 0;
+
+    return { totalPlans, avgMonthlyPrice, selectedEnabledFeatures, selectedTotalFeatures };
+  }, [plans, selectedPlan]);
 
   const featureStateByKey = useMemo(() => {
     if (!selectedPlan) {
@@ -258,6 +269,13 @@ export default function SuperAdminPlansPage() {
       {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
       {message ? <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">{message}</p> : null}
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Total Plans" value={metrics.totalPlans} />
+        <MetricCard title="Avg Monthly Price" value={`$${metrics.avgMonthlyPrice.toFixed(2)}`} />
+        <MetricCard title="Enabled Features (Selected)" value={metrics.selectedEnabledFeatures} />
+        <MetricCard title="Total Features (Selected)" value={metrics.selectedTotalFeatures} />
+      </section>
+
       <Card>
         <CardHeader>
           <CardTitle>Plan Catalog</CardTitle>
@@ -292,73 +310,111 @@ export default function SuperAdminPlansPage() {
           </CardHeader>
           <CardContent>
             <form className="grid gap-3 md:grid-cols-3" onSubmit={updatePlan}>
-              <Input value={editForm.code} onChange={(event) => setEditForm((state) => ({ ...state, code: event.target.value.toUpperCase() }))} placeholder="Code" required />
-              <Input value={editForm.name} onChange={(event) => setEditForm((state) => ({ ...state, name: event.target.value }))} placeholder="Name" required />
-              <Input
-                value={editForm.hostingPackage}
-                onChange={(event) => setEditForm((state) => ({ ...state, hostingPackage: event.target.value }))}
-                placeholder="Hosting package"
-                required
-              />
-              <Input
-                value={editForm.description}
-                onChange={(event) => setEditForm((state) => ({ ...state, description: event.target.value }))}
-                placeholder="Description (optional)"
-              />
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={editForm.monthlyPrice}
-                onChange={(event) => setEditForm((state) => ({ ...state, monthlyPrice: event.target.value }))}
-                placeholder="Monthly price"
-                required
-              />
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={editForm.yearlyPrice}
-                onChange={(event) => setEditForm((state) => ({ ...state, yearlyPrice: event.target.value }))}
-                placeholder="Yearly price (optional)"
-              />
-              <Input
-                type="number"
-                min={1}
-                value={editForm.maxProducts}
-                onChange={(event) => setEditForm((state) => ({ ...state, maxProducts: event.target.value }))}
-                placeholder="Max products"
-              />
-              <Input
-                type="number"
-                min={1}
-                value={editForm.maxOrdersPerYear}
-                onChange={(event) => setEditForm((state) => ({ ...state, maxOrdersPerYear: event.target.value }))}
-                placeholder="Max orders/year"
-              />
-              <Input
-                type="number"
-                min={1}
-                value={editForm.maxStaffAccounts}
-                onChange={(event) => setEditForm((state) => ({ ...state, maxStaffAccounts: event.target.value }))}
-                placeholder="Max staff accounts"
-              />
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={editForm.domainIncluded ? 'yes' : 'no'}
-                onChange={(event) => setEditForm((state) => ({ ...state, domainIncluded: event.target.value === 'yes' }))}
-              >
-                <option value="yes">Domain Included</option>
-                <option value="no">Domain Excluded</option>
-              </select>
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={editForm.maintenanceIncluded ? 'yes' : 'no'}
-                onChange={(event) => setEditForm((state) => ({ ...state, maintenanceIncluded: event.target.value === 'yes' }))}
-              >
-                <option value="yes">Maintenance Included</option>
-                <option value="no">Maintenance Excluded</option>
-              </select>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Plan Code</label>
+                <Input
+                  value={editForm.code}
+                  onChange={(event) => setEditForm((state) => ({ ...state, code: event.target.value.toUpperCase() }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Plan Name</label>
+                <Input
+                  value={editForm.name}
+                  onChange={(event) => setEditForm((state) => ({ ...state, name: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Hosting Package</label>
+                <Input
+                  value={editForm.hostingPackage}
+                  onChange={(event) => setEditForm((state) => ({ ...state, hostingPackage: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
+                <Input
+                  value={editForm.description}
+                  onChange={(event) => setEditForm((state) => ({ ...state, description: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Monthly Price</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={editForm.monthlyPrice}
+                  onChange={(event) => setEditForm((state) => ({ ...state, monthlyPrice: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Yearly Price (Optional)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={editForm.yearlyPrice}
+                  onChange={(event) => setEditForm((state) => ({ ...state, yearlyPrice: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max Products (Optional)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editForm.maxProducts}
+                  onChange={(event) => setEditForm((state) => ({ ...state, maxProducts: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max Orders / Year (Optional)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editForm.maxOrdersPerYear}
+                  onChange={(event) => setEditForm((state) => ({ ...state, maxOrdersPerYear: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max Staff Accounts (Optional)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editForm.maxStaffAccounts}
+                  onChange={(event) => setEditForm((state) => ({ ...state, maxStaffAccounts: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Domain Included</label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={editForm.domainIncluded ? 'yes' : 'no'}
+                  onChange={(event) =>
+                    setEditForm((state) => ({ ...state, domainIncluded: event.target.value === 'yes' }))
+                  }
+                >
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Maintenance Included</label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={editForm.maintenanceIncluded ? 'yes' : 'no'}
+                  onChange={(event) =>
+                    setEditForm((state) => ({ ...state, maintenanceIncluded: event.target.value === 'yes' }))
+                  }
+                >
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
               <Button>Save Plan Changes</Button>
             </form>
           </CardContent>
@@ -434,85 +490,119 @@ export default function SuperAdminPlansPage() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={createPlan}>
-            <Input
-              placeholder="Code"
-              value={createForm.code}
-              onChange={(event) => setCreateForm((state) => ({ ...state, code: event.target.value.toUpperCase() }))}
-              required
-            />
-            <Input
-              placeholder="Name"
-              value={createForm.name}
-              onChange={(event) => setCreateForm((state) => ({ ...state, name: event.target.value }))}
-              required
-            />
-            <Input
-              placeholder="Hosting package"
-              value={createForm.hostingPackage}
-              onChange={(event) => setCreateForm((state) => ({ ...state, hostingPackage: event.target.value }))}
-              required
-            />
-            <Input
-              placeholder="Description"
-              value={createForm.description}
-              onChange={(event) => setCreateForm((state) => ({ ...state, description: event.target.value }))}
-            />
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="Monthly price"
-              value={createForm.monthlyPrice}
-              onChange={(event) => setCreateForm((state) => ({ ...state, monthlyPrice: event.target.value }))}
-              required
-            />
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="Yearly price"
-              value={createForm.yearlyPrice}
-              onChange={(event) => setCreateForm((state) => ({ ...state, yearlyPrice: event.target.value }))}
-            />
-            <Input
-              type="number"
-              min={1}
-              placeholder="Max products"
-              value={createForm.maxProducts}
-              onChange={(event) => setCreateForm((state) => ({ ...state, maxProducts: event.target.value }))}
-            />
-            <Input
-              type="number"
-              min={1}
-              placeholder="Max orders/year"
-              value={createForm.maxOrdersPerYear}
-              onChange={(event) => setCreateForm((state) => ({ ...state, maxOrdersPerYear: event.target.value }))}
-            />
-            <Input
-              type="number"
-              min={1}
-              placeholder="Max staff accounts"
-              value={createForm.maxStaffAccounts}
-              onChange={(event) => setCreateForm((state) => ({ ...state, maxStaffAccounts: event.target.value }))}
-            />
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={createForm.domainIncluded ? 'yes' : 'no'}
-              onChange={(event) => setCreateForm((state) => ({ ...state, domainIncluded: event.target.value === 'yes' }))}
-            >
-              <option value="yes">Domain Included</option>
-              <option value="no">Domain Excluded</option>
-            </select>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={createForm.maintenanceIncluded ? 'yes' : 'no'}
-              onChange={(event) =>
-                setCreateForm((state) => ({ ...state, maintenanceIncluded: event.target.value === 'yes' }))
-              }
-            >
-              <option value="yes">Maintenance Included</option>
-              <option value="no">Maintenance Excluded</option>
-            </select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Plan Code</label>
+              <Input
+                placeholder="STARTUP"
+                value={createForm.code}
+                onChange={(event) =>
+                  setCreateForm((state) => ({ ...state, code: event.target.value.toUpperCase() }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Plan Name</label>
+              <Input
+                placeholder="Startup"
+                value={createForm.name}
+                onChange={(event) => setCreateForm((state) => ({ ...state, name: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Hosting Package</label>
+              <Input
+                placeholder="Basic cloud"
+                value={createForm.hostingPackage}
+                onChange={(event) =>
+                  setCreateForm((state) => ({ ...state, hostingPackage: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
+              <Input
+                placeholder="Entry plan"
+                value={createForm.description}
+                onChange={(event) => setCreateForm((state) => ({ ...state, description: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Monthly Price</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={createForm.monthlyPrice}
+                onChange={(event) => setCreateForm((state) => ({ ...state, monthlyPrice: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Yearly Price (Optional)</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={createForm.yearlyPrice}
+                onChange={(event) => setCreateForm((state) => ({ ...state, yearlyPrice: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Max Products (Optional)</label>
+              <Input
+                type="number"
+                min={1}
+                value={createForm.maxProducts}
+                onChange={(event) => setCreateForm((state) => ({ ...state, maxProducts: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Max Orders / Year (Optional)</label>
+              <Input
+                type="number"
+                min={1}
+                value={createForm.maxOrdersPerYear}
+                onChange={(event) => setCreateForm((state) => ({ ...state, maxOrdersPerYear: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Max Staff Accounts (Optional)</label>
+              <Input
+                type="number"
+                min={1}
+                value={createForm.maxStaffAccounts}
+                onChange={(event) => setCreateForm((state) => ({ ...state, maxStaffAccounts: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Domain Included</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={createForm.domainIncluded ? 'yes' : 'no'}
+                onChange={(event) =>
+                  setCreateForm((state) => ({ ...state, domainIncluded: event.target.value === 'yes' }))
+                }
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Maintenance Included</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={createForm.maintenanceIncluded ? 'yes' : 'no'}
+                onChange={(event) =>
+                  setCreateForm((state) => ({ ...state, maintenanceIncluded: event.target.value === 'yes' }))
+                }
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
             <Button>Create Plan</Button>
           </form>
         </CardContent>

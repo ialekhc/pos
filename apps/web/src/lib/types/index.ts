@@ -24,7 +24,12 @@ export type Product = {
   sku: string;
   barcode?: string | null;
   hsCode?: string | null;
-  category?: { id: string; name: string } | null;
+  category?: {
+    id: string;
+    name: string;
+    parentId?: string | null;
+    parent?: { id: string; name: string } | null;
+  } | null;
   price: string;
   costPrice: string;
   stockQuantity: number;
@@ -55,7 +60,12 @@ export type PosSaleItem = {
   product?: {
     id: string;
     hsCode?: string | null;
-    category?: { id: string; name: string } | null;
+    category?: {
+      id: string;
+      name: string;
+      parentId?: string | null;
+      parent?: { id: string; name: string } | null;
+    } | null;
   } | null;
 };
 

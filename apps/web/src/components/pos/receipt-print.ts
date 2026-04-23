@@ -38,7 +38,20 @@ function toMoney(amount: string | number, currency: string) {
 }
 
 function itemCategoryName(item: PosSaleItem) {
-  return item.categoryName ?? item.product?.category?.name ?? null;
+  if (item.categoryName) {
+    return item.categoryName;
+  }
+
+  const category = item.product?.category;
+  if (!category) {
+    return null;
+  }
+
+  if (category.parent?.name) {
+    return `${category.parent.name} > ${category.name}`;
+  }
+
+  return category.name;
 }
 
 function itemHsCode(item: PosSaleItem) {

@@ -6,11 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DataTable } from '@/components/layout/data-table';
+import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 import { Product } from '@/lib/types';
 
 type Category = {
   id: string;
+  parentId?: string | null;
+  parent?: {
+    id: string;
+    name: string;
+    parentId?: string | null;
+  } | null;
   name: string;
   description?: string | null;
 };
@@ -59,6 +66,29 @@ function parseRequestError(error: unknown) {
   }
 }
 
+function formatCategoryPath(category: Category, categoriesById: Map<string, Category>) {
+  const names: string[] = [category.name];
+  let cursorParentId = category.parentId ?? category.parent?.id ?? null;
+  const visited = new Set<string>();
+
+  while (cursorParentId) {
+    if (visited.has(cursorParentId)) {
+      break;
+    }
+    visited.add(cursorParentId);
+
+    const parent = categoriesById.get(cursorParentId);
+    if (!parent) {
+      break;
+    }
+
+    names.unshift(parent.name);
+    cursorParentId = parent.parentId ?? parent.parent?.id ?? null;
+  }
+
+  return names.join(' > ');
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -74,11 +104,13 @@ export default function ProductsPage() {
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
+    parentId: '',
     description: ''
   });
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [categoryEditForm, setCategoryEditForm] = useState({
     name: '',
+    parentId: '',
     description: ''
   });
 
@@ -90,6 +122,30 @@ export default function ProductsPage() {
     () => new Map(categories.map((category) => [category.id, category])),
     [categories]
   );
+  const orderedCategories = useMemo(() => {
+    const top = categories.filter((category) => !category.parentId);
+    const children = categories.filter((category) => category.parentId);
+    return [...top, ...children].sort((a, b) =>
+      formatCategoryPath(a, categoryMap).localeCompare(formatCategoryPath(b, categoryMap))
+    );
+  }, [categories, categoryMap]);
+  const metrics = useMemo(() => {
+    const totalProducts = products.length;
+    const activeProducts = products.filter((product) => product.status === 'ACTIVE').length;
+    const lowStockProducts = products.filter(
+      (product) => product.stockQuantity <= product.lowStockThreshold
+    ).length;
+    const totalCategories = categories.filter((category) => !category.parentId).length;
+    const totalSubcategories = categories.filter((category) => !!category.parentId).length;
+
+    return {
+      totalProducts,
+      activeProducts,
+      lowStockProducts,
+      totalCategories,
+      totalSubcategories
+    };
+  }, [categories, products]);
 
   const loadProducts = async () => {
     try {
@@ -133,13 +189,14 @@ export default function ProductsPage() {
         method: 'POST',
         body: JSON.stringify({
           name,
+          parentId: categoryForm.parentId || undefined,
           description: categoryForm.description.trim() || undefined
         })
       });
 
       await loadCategories();
       setForm((state) => ({ ...state, categoryId: created.id }));
-      setCategoryForm({ name: '', description: '' });
+      setCategoryForm({ name: '', parentId: '', description: '' });
       setNotice(`Category "${created.name}" created.`);
     } catch (requestError) {
       setError(parseRequestError(requestError));
@@ -152,6 +209,7 @@ export default function ProductsPage() {
     setEditingCategoryId(category.id);
     setCategoryEditForm({
       name: category.name,
+      parentId: category.parentId ?? category.parent?.id ?? '',
       description: category.description ?? ''
     });
     setError(null);
@@ -160,7 +218,7 @@ export default function ProductsPage() {
 
   const cancelCategoryEdit = () => {
     setEditingCategoryId(null);
-    setCategoryEditForm({ name: '', description: '' });
+    setCategoryEditForm({ name: '', parentId: '', description: '' });
   };
 
   const updateCategory = async (event: FormEvent) => {
@@ -177,6 +235,7 @@ export default function ProductsPage() {
         method: 'PATCH',
         body: JSON.stringify({
           name: categoryEditForm.name.trim() || undefined,
+          parentId: categoryEditForm.parentId || null,
           description: categoryEditForm.description.trim() || undefined
         })
       });
@@ -192,7 +251,7 @@ export default function ProductsPage() {
 
   const removeCategory = async (category: Category) => {
     const confirmed = window.confirm(
-      `Delete category "${category.name}"? Products currently linked to it may become uncategorized.`
+      `Delete category "${category.name}"? Products may become uncategorized and direct subcategories will move to top level.`
     );
     if (!confirmed) {
       return;
@@ -328,12 +387,20 @@ export default function ProductsPage() {
       {error ? <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
       {notice ? <p className="rounded-md bg-primary/10 p-2 text-sm text-primary">{notice}</p> : null}
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard title="Products" value={metrics.totalProducts} />
+        <MetricCard title="Active Products" value={metrics.activeProducts} />
+        <MetricCard title="Low Stock" value={metrics.lowStockProducts} />
+        <MetricCard title="Categories" value={metrics.totalCategories} />
+        <MetricCard title="Subcategories" value={metrics.totalSubcategories} />
+      </section>
+
       <Card>
         <CardHeader>
           <CardTitle>Create Category</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-3 md:grid-cols-2" onSubmit={createCategory}>
+          <form className="grid gap-3 md:grid-cols-3" onSubmit={createCategory}>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Category Name</label>
               <Input
@@ -346,6 +413,23 @@ export default function ProductsPage() {
               />
             </div>
             <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Parent Category (Optional)</label>
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={categoryForm.parentId}
+                onChange={(event) =>
+                  setCategoryForm((state) => ({ ...state, parentId: event.target.value }))
+                }
+              >
+                <option value="">Top-level category</option>
+                {orderedCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {formatCategoryPath(category, categoryMap)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
               <Textarea
                 rows={1}
@@ -356,7 +440,7 @@ export default function ProductsPage() {
                 }
               />
             </div>
-            <Button className="md:col-span-2" disabled={isCreatingCategory}>
+            <Button className="md:col-span-3" disabled={isCreatingCategory}>
               {isCreatingCategory ? 'Creating Category...' : 'Add Category'}
             </Button>
           </form>
@@ -369,7 +453,7 @@ export default function ProductsPage() {
             <CardTitle>Edit Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3 md:grid-cols-2" onSubmit={updateCategory}>
+            <form className="grid gap-3 md:grid-cols-3" onSubmit={updateCategory}>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Category Name</label>
                 <Input
@@ -381,6 +465,25 @@ export default function ProductsPage() {
                 />
               </div>
               <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Parent Category (Optional)</label>
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={categoryEditForm.parentId}
+                  onChange={(event) =>
+                    setCategoryEditForm((state) => ({ ...state, parentId: event.target.value }))
+                  }
+                >
+                  <option value="">Top-level category</option>
+                  {orderedCategories
+                    .filter((category) => category.id !== editingCategoryId)
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {formatCategoryPath(category, categoryMap)}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
                 <Textarea
                   rows={1}
@@ -390,7 +493,7 @@ export default function ProductsPage() {
                   }
                 />
               </div>
-              <div className="md:col-span-2 flex flex-wrap gap-2">
+              <div className="md:col-span-3 flex flex-wrap gap-2">
                 <Button disabled={isUpdatingCategory}>
                   {isUpdatingCategory ? 'Saving...' : 'Save Category Changes'}
                 </Button>
@@ -409,9 +512,13 @@ export default function ProductsPage() {
         </CardHeader>
         <CardContent>
           <DataTable
-            headers={['Name', 'Description', 'Actions']}
+            headers={['Category', 'Type', 'Parent', 'Description', 'Actions']}
             rows={categories.map((category) => [
-              category.name,
+              formatCategoryPath(category, categoryMap),
+              category.parentId ? 'Subcategory' : 'Category',
+              category.parentId
+                ? categoryMap.get(category.parentId)?.name ?? category.parent?.name ?? '-'
+                : '-',
               category.description ?? '-',
               <div key={`${category.id}-actions`} className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => startEditCategory(category)}>
@@ -462,9 +569,9 @@ export default function ProductsPage() {
                 onChange={(event) => setForm((state) => ({ ...state, categoryId: event.target.value }))}
               >
                 <option value="">No category</option>
-                {categories.map((category) => (
+                {orderedCategories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.name}
+                    {formatCategoryPath(category, categoryMap)}
                   </option>
                 ))}
               </select>
@@ -566,9 +673,9 @@ export default function ProductsPage() {
                   }
                 >
                   <option value="">No category</option>
-                  {categories.map((category) => (
+                  {orderedCategories.map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.name}
+                      {formatCategoryPath(category, categoryMap)}
                     </option>
                   ))}
                 </select>
@@ -656,7 +763,11 @@ export default function ProductsPage() {
             rows={products.map((product) => [
               product.name,
               product.sku,
-              categoryMap.get(product.categoryId ?? '')?.name ?? product.category?.name ?? '-',
+              product.categoryId && categoryMap.get(product.categoryId)
+                ? formatCategoryPath(categoryMap.get(product.categoryId)!, categoryMap)
+                : product.category?.parent
+                  ? `${product.category.parent.name} > ${product.category.name}`
+                  : product.category?.name ?? '-',
               product.hsCode ?? '-',
               `$${Number(product.price).toFixed(2)}`,
               product.stockQuantity,

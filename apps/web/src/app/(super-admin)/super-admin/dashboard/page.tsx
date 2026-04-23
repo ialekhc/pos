@@ -37,7 +37,7 @@ type AdminDashboardResponse = {
 
 type HealthResponse = {
   database: 'UP' | 'DOWN';
-  redis: 'UP' | 'DOWN';
+  redis: 'UP' | 'DOWN' | 'DISABLED';
   timestamp: string;
 };
 

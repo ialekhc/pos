@@ -22,7 +22,13 @@ export class ProductsRepository {
             }
           : {})
       },
-      include: { category: true },
+      include: {
+        category: {
+          include: {
+            parent: true
+          }
+        }
+      },
       orderBy: { name: 'asc' }
     });
   }
@@ -30,7 +36,13 @@ export class ProductsRepository {
   findById(productId: string) {
     return this.prisma.product.findUnique({
       where: { id: productId },
-      include: { category: true }
+      include: {
+        category: {
+          include: {
+            parent: true
+          }
+        }
+      }
     });
   }
 
@@ -55,11 +67,30 @@ export class ProductsRepository {
   }
 
   create(data: Parameters<PrismaService['product']['create']>[0]['data']) {
-    return this.prisma.product.create({ data, include: { category: true } });
+    return this.prisma.product.create({
+      data,
+      include: {
+        category: {
+          include: {
+            parent: true
+          }
+        }
+      }
+    });
   }
 
   update(productId: string, data: Parameters<PrismaService['product']['update']>[0]['data']) {
-    return this.prisma.product.update({ where: { id: productId }, data, include: { category: true } });
+    return this.prisma.product.update({
+      where: { id: productId },
+      data,
+      include: {
+        category: {
+          include: {
+            parent: true
+          }
+        }
+      }
+    });
   }
 
   softDelete(productId: string) {

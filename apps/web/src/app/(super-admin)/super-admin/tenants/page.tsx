@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
+import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 
 type TenantStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
@@ -65,6 +66,14 @@ export default function SuperAdminTenantsPage() {
       })),
     [plans]
   );
+  const tenantMetrics = useMemo(() => {
+    const total = tenants.length;
+    const active = tenants.filter((tenant) => tenant.status === 'ACTIVE').length;
+    const suspended = tenants.filter((tenant) => tenant.status === 'SUSPENDED').length;
+    const withoutPlan = tenants.filter((tenant) => !tenant.subscriptions[0]?.plan).length;
+
+    return { total, active, suspended, withoutPlan };
+  }, [tenants]);
 
   const loadData = async () => {
     try {
@@ -245,6 +254,13 @@ export default function SuperAdminTenantsPage() {
       {error ? <p className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
       {message ? <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">{message}</p> : null}
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Total Tenants" value={tenantMetrics.total} />
+        <MetricCard title="Active Tenants" value={tenantMetrics.active} />
+        <MetricCard title="Suspended Tenants" value={tenantMetrics.suspended} />
+        <MetricCard title="Without Plan" value={tenantMetrics.withoutPlan} />
+      </section>
+
       <Card>
         <CardHeader>
           <CardTitle>Create Tenant Workspace</CardTitle>
@@ -254,47 +270,65 @@ export default function SuperAdminTenantsPage() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={createTenant}>
-            <Input
-              placeholder="Business name"
-              value={form.name}
-              onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
-              required
-            />
-            <Input
-              placeholder="Slug (e.g. sunrise-mart)"
-              value={form.slug}
-              onChange={(event) => setForm((state) => ({ ...state, slug: event.target.value.trim().toLowerCase() }))}
-              required
-            />
-            <Input
-              placeholder="Custom domain (optional)"
-              value={form.domain}
-              onChange={(event) => setForm((state) => ({ ...state, domain: event.target.value }))}
-            />
-            <Input
-              placeholder="Timezone"
-              value={form.timezone}
-              onChange={(event) => setForm((state) => ({ ...state, timezone: event.target.value }))}
-              required
-            />
-            <Input
-              placeholder="Currency"
-              value={form.currency}
-              onChange={(event) => setForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))}
-              required
-            />
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={form.initialPlanId}
-              onChange={(event) => setForm((state) => ({ ...state, initialPlanId: event.target.value }))}
-            >
-              <option value="">No initial plan</option>
-              {planOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Business Name</label>
+              <Input
+                placeholder="Sunrise Mart"
+                value={form.name}
+                onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Tenant Slug</label>
+              <Input
+                placeholder="sunrise-mart"
+                value={form.slug}
+                onChange={(event) => setForm((state) => ({ ...state, slug: event.target.value.trim().toLowerCase() }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Custom Domain (Optional)</label>
+              <Input
+                placeholder="shop.example.com"
+                value={form.domain}
+                onChange={(event) => setForm((state) => ({ ...state, domain: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Timezone</label>
+              <Input
+                placeholder="Asia/Kathmandu"
+                value={form.timezone}
+                onChange={(event) => setForm((state) => ({ ...state, timezone: event.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Currency</label>
+              <Input
+                placeholder="USD"
+                value={form.currency}
+                onChange={(event) => setForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Initial Plan (Optional)</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.initialPlanId}
+                onChange={(event) => setForm((state) => ({ ...state, initialPlanId: event.target.value }))}
+              >
+                <option value="">No initial plan</option>
+                {planOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="md:col-span-3">
               <Button disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create Tenant'}</Button>
             </div>
@@ -310,39 +344,49 @@ export default function SuperAdminTenantsPage() {
           </CardHeader>
           <CardContent>
             <form className="grid gap-3 md:grid-cols-3" onSubmit={updateTenant}>
-              <Input
-                placeholder="Business name"
-                value={editForm.name}
-                onChange={(event) => setEditForm((state) => ({ ...state, name: event.target.value }))}
-                required
-              />
-              <Input
-                placeholder="Slug"
-                value={editForm.slug}
-                onChange={(event) =>
-                  setEditForm((state) => ({ ...state, slug: event.target.value.trim().toLowerCase() }))
-                }
-                required
-              />
-              <Input
-                placeholder="Custom domain (optional)"
-                value={editForm.domain}
-                onChange={(event) => setEditForm((state) => ({ ...state, domain: event.target.value }))}
-              />
-              <Input
-                placeholder="Timezone"
-                value={editForm.timezone}
-                onChange={(event) => setEditForm((state) => ({ ...state, timezone: event.target.value }))}
-                required
-              />
-              <Input
-                placeholder="Currency"
-                value={editForm.currency}
-                onChange={(event) =>
-                  setEditForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))
-                }
-                required
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Business Name</label>
+                <Input
+                  value={editForm.name}
+                  onChange={(event) => setEditForm((state) => ({ ...state, name: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Tenant Slug</label>
+                <Input
+                  value={editForm.slug}
+                  onChange={(event) =>
+                    setEditForm((state) => ({ ...state, slug: event.target.value.trim().toLowerCase() }))
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Custom Domain (Optional)</label>
+                <Input
+                  value={editForm.domain}
+                  onChange={(event) => setEditForm((state) => ({ ...state, domain: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Timezone</label>
+                <Input
+                  value={editForm.timezone}
+                  onChange={(event) => setEditForm((state) => ({ ...state, timezone: event.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                <Input
+                  value={editForm.currency}
+                  onChange={(event) =>
+                    setEditForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))
+                  }
+                  required
+                />
+              </div>
               <div className="flex items-end gap-2">
                 <Button disabled={isUpdatingTenant}>
                   {isUpdatingTenant ? 'Saving...' : 'Save Tenant'}

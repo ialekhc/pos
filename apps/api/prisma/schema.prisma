@@ -240,6 +240,7 @@ model User {
 model Category {
   id               String       @id @default(uuid())
   tenantId         String
+  parentId         String?
   name             String
   description      String?
   isActive         Boolean      @default(true)
@@ -248,10 +249,13 @@ model Category {
   deletedAt        DateTime?
 
   tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent           Category?    @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children         Category[]   @relation("CategoryHierarchy")
   products         Product[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
+  @@index([tenantId, parentId])
 }
 
 model Product {
