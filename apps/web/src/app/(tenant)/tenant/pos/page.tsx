@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOfflineCart } from '@/hooks/use-offline-cart';
 import { apiRequest } from '@/lib/api/client';
 import { useSessionStore } from '@/lib/stores/use-session-store';
-import { PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
+import { Party, PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
 
 type PaymentLineDraft = {
   id: string;
@@ -82,7 +82,10 @@ export default function PosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [recentBills, setRecentBills] = useState<PosSale[]>([]);
   const [settings, setSettings] = useState<PosSettings | null>(null);
+  const [clientParties, setClientParties] = useState<Party[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedPartyId, setSelectedPartyId] = useState('');
+  const [partyPercent, setPartyPercent] = useState(0);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -113,13 +116,21 @@ export default function PosPage() {
     subtotal
   } = useOfflineCart();
 
-  const clampedDiscount = useMemo(
+  const clampedManualDiscount = useMemo(
     () => Math.min(Math.max(discountAmount, 0), subtotal),
     [discountAmount, subtotal]
   );
+  const partyDiscountAmount = useMemo(
+    () => Number(((subtotal * Math.min(Math.max(partyPercent, 0), 100)) / 100).toFixed(2)),
+    [partyPercent, subtotal]
+  );
+  const totalDiscount = useMemo(
+    () => Number(Math.min(clampedManualDiscount + partyDiscountAmount, subtotal).toFixed(2)),
+    [clampedManualDiscount, partyDiscountAmount, subtotal]
+  );
   const taxRatePercent = useMemo(() => sanitizeTaxRate(settings?.taxRate), [settings?.taxRate]);
   const taxRateFactor = useMemo(() => taxRatePercent / 100, [taxRatePercent]);
-  const taxableSubtotal = useMemo(() => Math.max(subtotal - clampedDiscount, 0), [clampedDiscount, subtotal]);
+  const taxableSubtotal = useMemo(() => Math.max(subtotal - totalDiscount, 0), [subtotal, totalDiscount]);
   const tax = useMemo(
     () => Number((vatEnabled ? taxableSubtotal * taxRateFactor : 0).toFixed(2)),
     [taxRateFactor, taxableSubtotal, vatEnabled]
@@ -170,6 +181,11 @@ export default function PosPage() {
     );
   }, [products, search]);
 
+  const selectedClientParty = useMemo(
+    () => clientParties.find((party) => party.id === selectedPartyId) ?? null,
+    [clientParties, selectedPartyId]
+  );
+
   const receiptContext = useMemo<ReceiptPrintContext>(
     () => ({
       businessName: settings?.businessName || sessionUser?.tenantName || 'POS Cloud',
@@ -198,6 +214,10 @@ export default function PosPage() {
         bills.map((sale) => ({
           ...sale,
           billType: sale.billType ?? 'SALE',
+          partyName: sale.partyName ?? sale.customerName ?? null,
+          partyPhone: sale.partyPhone ?? sale.customerPhone ?? null,
+          partyPercent: sale.partyPercent ?? '0',
+          partyAmount: sale.partyAmount ?? '0',
           items: sale.items.map((item) => ({
             ...item,
             categoryName: item.categoryName ?? categoryLabel(item.product?.category) ?? null,
@@ -222,6 +242,15 @@ export default function PosPage() {
     }
   };
 
+  const loadClientParties = async () => {
+    try {
+      const parties = await apiRequest<Party[]>('/parties?type=CLIENT');
+      setClientParties(parties);
+    } catch {
+      setClientParties([]);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('pos-auto-print-receipt');
@@ -232,6 +261,7 @@ export default function PosPage() {
     void loadProducts();
     void loadRecentBills();
     void loadSettings();
+    void loadClientParties();
   }, []);
 
   const resetBillingState = () => {
@@ -239,6 +269,8 @@ export default function PosPage() {
     setCustomerPhone('');
     setNotes('');
     setDiscountAmount(0);
+    setSelectedPartyId('');
+    setPartyPercent(0);
     setSplitMode(false);
     setSinglePaymentMethod('CASH');
     setSinglePaymentAmount(0);
@@ -250,6 +282,10 @@ export default function PosPage() {
     return {
       ...sale,
       billType: sale.billType ?? 'SALE',
+      partyName: sale.partyName ?? sale.customerName ?? null,
+      partyPhone: sale.partyPhone ?? sale.customerPhone ?? null,
+      partyPercent: sale.partyPercent ?? '0',
+      partyAmount: sale.partyAmount ?? '0',
       items: sale.items.map((item) => {
         const cartLine = cartByProductId.get(item.productId);
         return {
@@ -272,7 +308,7 @@ export default function PosPage() {
     const estimationItems = currentCart.map((line) => {
       const baseAmount = line.price * line.quantity;
       const weight = subtotal > 0 ? baseAmount / subtotal : 0;
-      const lineDiscount = Number((clampedDiscount * weight).toFixed(2));
+      const lineDiscount = Number((totalDiscount * weight).toFixed(2));
       const lineTax = Number((tax * weight).toFixed(2));
       const lineTotal = Number((baseAmount - lineDiscount + lineTax).toFixed(2));
 
@@ -299,7 +335,7 @@ export default function PosPage() {
         0
       );
       const distributedTax = estimationItems.reduce((sum, item) => sum + Number(item.taxAmount), 0);
-      const discountDelta = Number((clampedDiscount - distributedDiscount).toFixed(2));
+      const discountDelta = Number((totalDiscount - distributedDiscount).toFixed(2));
       const taxDelta = Number((tax - distributedTax).toFixed(2));
 
       if (discountDelta !== 0 || taxDelta !== 0) {
@@ -319,16 +355,24 @@ export default function PosPage() {
     }
 
     const nowIso = new Date().toISOString();
+    const resolvedPartyName = customerName.trim() || selectedClientParty?.name || undefined;
+    const resolvedPartyPhone = customerPhone.trim() || selectedClientParty?.phone || undefined;
     const estimateSale: PosSale = {
       id: `estimate-${Date.now()}`,
       saleNumber: createEstimateNumber(),
       billType: 'ESTIMATION',
       status: 'COMPLETED',
       source: 'POS',
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
+      customerName: resolvedPartyName,
+      customerPhone: resolvedPartyPhone,
+      partyId: selectedPartyId || undefined,
+      partyType: selectedPartyId ? 'CLIENT' : undefined,
+      partyName: resolvedPartyName,
+      partyPhone: resolvedPartyPhone,
+      partyPercent: partyPercent.toFixed(2),
       subtotal: subtotal.toFixed(2),
-      discountAmount: clampedDiscount.toFixed(2),
+      partyAmount: partyDiscountAmount.toFixed(2),
+      discountAmount: totalDiscount.toFixed(2),
       taxAmount: tax.toFixed(2),
       totalAmount: total.toFixed(2),
       paidAmount: '0.00',
@@ -373,6 +417,8 @@ export default function PosPage() {
 
     setIsSubmitting(true);
     try {
+      const resolvedPartyName = customerName.trim() || selectedClientParty?.name || undefined;
+      const resolvedPartyPhone = customerPhone.trim() || selectedClientParty?.phone || undefined;
       const normalizedNotes = notes.trim();
       const composedNotes = [normalizedNotes, vatEnabled ? '' : 'WITHOUT_VAT_BILL']
         .filter(Boolean)
@@ -386,11 +432,16 @@ export default function PosPage() {
             quantity: line.quantity
           })),
           payments: checkoutPayments,
-          customerName: customerName.trim() || undefined,
-          customerPhone: customerPhone.trim() || undefined,
+          customerName: resolvedPartyName,
+          customerPhone: resolvedPartyPhone,
+          partyId: selectedPartyId || undefined,
+          partyType: selectedPartyId ? 'CLIENT' : undefined,
+          partyName: resolvedPartyName,
+          partyPhone: resolvedPartyPhone,
+          partyPercent: Number(partyPercent.toFixed(2)),
           notes: composedNotes || undefined,
           taxAmount: tax,
-          discountAmount: clampedDiscount
+          discountAmount: clampedManualDiscount
         })
       });
 
@@ -513,6 +564,25 @@ export default function PosPage() {
         />
 
         <BillingPanel
+          clientParties={clientParties}
+          selectedPartyId={selectedPartyId}
+          onSelectedPartyIdChange={(partyId) => {
+            setSelectedPartyId(partyId);
+            const selected = clientParties.find((party) => party.id === partyId);
+            if (selected) {
+              setPartyPercent(Number(selected.defaultPercent || 0));
+              if (!customerName.trim()) {
+                setCustomerName(selected.name);
+              }
+              if (!customerPhone.trim() && selected.phone) {
+                setCustomerPhone(selected.phone);
+              }
+            } else {
+              setPartyPercent(0);
+            }
+          }}
+          partyPercent={partyPercent}
+          onPartyPercentChange={setPartyPercent}
           customerName={customerName}
           customerPhone={customerPhone}
           notes={notes}

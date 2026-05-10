@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRoleCode } from '@prisma/client';
 import { ActiveUser } from '../common/types/active-user.type';
 import { AuditService } from '../audit/audit.service';
@@ -93,11 +93,43 @@ export class SalesService {
       };
     });
 
+    let resolvedPartyId: string | undefined;
+    let resolvedPartyType: 'VENDOR' | 'CLIENT' | undefined = dto.partyType;
+    let resolvedPartyName = dto.partyName?.trim() || undefined;
+    let resolvedPartyPhone = dto.partyPhone?.trim() || undefined;
+    let resolvedPartyPercent =
+      dto.partyPercent !== undefined ? Math.min(Math.max(dto.partyPercent, 0), 100) : 0;
+
+    if (dto.partyId) {
+      const party = await this.salesRepository.findPartyById(dto.partyId);
+      if (!party || party.deletedAt) {
+        throw new NotFoundException('Selected party does not exist.');
+      }
+
+      if (party.tenantId !== actor.tenantId) {
+        throw new ForbiddenException('Selected party belongs to a different tenant.');
+      }
+
+      if (!party.isActive) {
+        throw new ForbiddenException('Selected party is inactive.');
+      }
+
+      resolvedPartyId = party.id;
+      resolvedPartyType = party.type;
+      resolvedPartyName = party.name;
+      resolvedPartyPhone = party.phone ?? resolvedPartyPhone;
+
+      if (dto.partyPercent === undefined) {
+        resolvedPartyPercent = Number(party.defaultPercent);
+      }
+    }
+
     const subtotal = computedItemsBase.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const partyAmount = Number(((subtotal * resolvedPartyPercent) / 100).toFixed(2));
     const discountAmountRaw =
       dto.discountAmount ??
       dto.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
-    const discountAmount = Math.min(Math.max(discountAmountRaw, 0), subtotal);
+    const discountAmount = Math.min(Math.max(discountAmountRaw + partyAmount, 0), subtotal);
     const taxableSubtotal = Math.max(subtotal - discountAmount, 0);
     const taxAmount = dto.taxAmount ?? Number((taxableSubtotal * 0.05).toFixed(2));
     const taxRate = taxableSubtotal > 0 ? taxAmount / taxableSubtotal : 0;
@@ -143,20 +175,39 @@ export class SalesService {
 
     const totalAmount = subtotal - discountAmount + taxAmount;
 
-    const sale = await this.salesRepository.createSaleWithStockReduction({
-      tenantId: actor.tenantId,
-      cashierId: actor.userId,
-      managerId: actor.role === UserRoleCode.MANAGER ? actor.userId : undefined,
-      counterId: dto.counterId,
-      customerName: dto.customerName,
-      customerPhone: dto.customerPhone,
-      notes: dto.notes,
-      subtotal,
-      discountAmount,
-      taxAmount,
-      totalAmount,
-      items: computedItems
-    });
+    let sale;
+    try {
+      sale = await this.salesRepository.createSaleWithStockReduction({
+        tenantId: actor.tenantId,
+        cashierId: actor.userId,
+        managerId: actor.role === UserRoleCode.MANAGER ? actor.userId : undefined,
+        counterId: dto.counterId,
+        partyId: resolvedPartyId,
+        partyType: resolvedPartyType,
+        partyName: resolvedPartyName,
+        partyPhone: resolvedPartyPhone,
+        partyPercent: resolvedPartyPercent,
+        partyAmount,
+        customerName: dto.customerName?.trim() || resolvedPartyName,
+        customerPhone: dto.customerPhone?.trim() || resolvedPartyPhone,
+        notes: dto.notes,
+        subtotal,
+        discountAmount,
+        taxAmount,
+        totalAmount,
+        items: computedItems
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('PRODUCT_NOT_FOUND')) {
+        throw new NotFoundException('One or more products were not found.');
+      }
+
+      if (error instanceof Error && error.message.startsWith('INSUFFICIENT_STOCK')) {
+        throw new BadRequestException('Insufficient stock for one or more items.');
+      }
+
+      throw error;
+    }
 
     let totalPaid = 0;
 
@@ -228,11 +279,24 @@ export class SalesService {
       throw new ForbiddenException('Insufficient permission to process refund.');
     }
 
-    const refunded = await this.salesRepository.refundSale({
-      saleId: dto.saleId,
-      actorId: actor.userId,
-      reason: dto.reason
-    });
+    let refunded;
+    try {
+      refunded = await this.salesRepository.refundSale({
+        saleId: dto.saleId,
+        actorId: actor.userId,
+        reason: dto.reason
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SALE_ALREADY_REFUNDED') {
+        throw new BadRequestException('Sale has already been refunded.');
+      }
+
+      if (error instanceof Error && error.message === 'SALE_ALREADY_CANCELED') {
+        throw new BadRequestException('Canceled sale cannot be refunded.');
+      }
+
+      throw error;
+    }
 
     await this.auditService.logUserEvent({
       actor,
@@ -266,7 +330,20 @@ export class SalesService {
       throw new ForbiddenException('Insufficient permission to cancel sale.');
     }
 
-    const canceled = await this.salesRepository.cancelSale({ saleId, reason });
+    let canceled;
+    try {
+      canceled = await this.salesRepository.cancelSale({ saleId, reason });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SALE_ALREADY_REFUNDED') {
+        throw new BadRequestException('Refunded sale cannot be canceled.');
+      }
+
+      if (error instanceof Error && error.message === 'SALE_ALREADY_CANCELED') {
+        throw new BadRequestException('Sale has already been canceled.');
+      }
+
+      throw error;
+    }
 
     await this.auditService.logUserEvent({
       actor,

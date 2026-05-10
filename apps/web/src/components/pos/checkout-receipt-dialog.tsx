@@ -55,7 +55,7 @@ export function CheckoutReceiptDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{sale?.billType === 'ESTIMATION' ? 'Estimation Bill Ready' : 'Receipt Ready'}</DialogTitle>
+          <DialogTitle>{sale?.billType === 'ESTIMATION' ? 'Estimation Bill Ready' : 'Main Bill Ready'}</DialogTitle>
         </DialogHeader>
 
         {sale ? (
@@ -68,10 +68,23 @@ export function CheckoutReceiptDialog({
                 <span className="text-muted-foreground">Status:</span> {sale.status}
               </p>
               <p>
-                <span className="text-muted-foreground">Party:</span> {sale.customerName || '-'}
+                <span className="text-muted-foreground">Party:</span>{' '}
+                {sale.partyName || sale.customerName || '-'}
               </p>
               <p>
-                <span className="text-muted-foreground">Phone:</span> {sale.customerPhone || '-'}
+                <span className="text-muted-foreground">Phone:</span>{' '}
+                {sale.partyPhone || sale.customerPhone || '-'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Party Type:</span> {sale.partyType || 'CLIENT'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Party %:</span>{' '}
+                {Number(sale.partyPercent || 0).toFixed(2)}%
+              </p>
+              <p>
+                <span className="text-muted-foreground">Party Amount:</span>{' '}
+                {toMoney(sale.partyAmount || 0, printContext.currency)}
               </p>
               <p>
                 <span className="text-muted-foreground">Total:</span>{' '}

@@ -60,8 +60,14 @@ function itemHsCode(item: PosSaleItem) {
 
 export function printSaleReceipt(sale: PosSale, context: ReceiptPrintContext, options?: PrintBillOptions) {
   const billType = options?.billType ?? sale.billType ?? 'SALE';
-  const vatEnabled = options?.vatEnabled ?? Number(sale.taxAmount || 0) > 0;
+  const vatDisabledByNote = (sale.notes || '').includes('WITHOUT_VAT_BILL');
+  const vatEnabled = options?.vatEnabled ?? (!vatDisabledByNote && Number(sale.taxAmount || 0) > 0);
   const defaultIoLabel = billType === 'ESTIMATION' ? 'ESTIMATE' : 'OUT';
+  const partyName = sale.partyName || sale.customerName || '-';
+  const partyPhone = sale.partyPhone || sale.customerPhone || '-';
+  const partyType = sale.partyType || 'CLIENT';
+  const partyPercent = Number(sale.partyPercent || 0);
+  const partyAmount = Number(sale.partyAmount || 0);
 
   const rows = sale.items
     .map((item) => {
@@ -105,7 +111,7 @@ export function printSaleReceipt(sale: PosSale, context: ReceiptPrintContext, op
     timeZone: context.timezone || undefined
   });
 
-  const titlePrefix = billType === 'ESTIMATION' ? 'Estimation Bill' : 'Receipt';
+  const titlePrefix = billType === 'ESTIMATION' ? 'Estimation Bill' : 'Main Bill';
   const opened = window.open('', '_blank', 'width=860,height=780');
   if (!opened) {
     return;
@@ -140,8 +146,11 @@ export function printSaleReceipt(sale: PosSale, context: ReceiptPrintContext, op
         <div class="meta">
           <p><strong>Completed:</strong> ${escapeHtml(completedAt)}</p>
           <p><strong>Status:</strong> ${escapeHtml(sale.status)}</p>
-          <p><strong>Party:</strong> ${escapeHtml(sale.customerName || '-')}</p>
-          <p><strong>Party Phone:</strong> ${escapeHtml(sale.customerPhone || '-')}</p>
+          <p><strong>Party Type:</strong> ${escapeHtml(partyType)}</p>
+          <p><strong>Party:</strong> ${escapeHtml(partyName)}</p>
+          <p><strong>Party Phone:</strong> ${escapeHtml(partyPhone)}</p>
+          <p><strong>Party %:</strong> ${escapeHtml(partyPercent.toFixed(2))}%</p>
+          <p><strong>Party Amount:</strong> ${toMoney(partyAmount, context.currency)}</p>
           <p><strong>Cashier:</strong> ${escapeHtml(context.cashierName || '-')}</p>
           <p><strong>VAT Mode:</strong> ${vatEnabled ? 'With VAT' : 'Without VAT'}</p>
           <p><strong>Note:</strong> ${escapeHtml(sale.notes || '-')}</p>
@@ -164,7 +173,8 @@ export function printSaleReceipt(sale: PosSale, context: ReceiptPrintContext, op
         <table class="totals">
           <tbody>
             <tr><td>Subtotal</td><td>${toMoney(sale.subtotal, context.currency)}</td></tr>
-            <tr><td>Party Discount</td><td>${toMoney(sale.discountAmount, context.currency)}</td></tr>
+            <tr><td>Total Discount</td><td>${toMoney(sale.discountAmount, context.currency)}</td></tr>
+            <tr><td>Party Discount Part</td><td>${toMoney(partyAmount, context.currency)}</td></tr>
             <tr><td>VAT</td><td>${toMoney(sale.taxAmount, context.currency)}</td></tr>
             <tr><td>Total</td><td>${toMoney(sale.totalAmount, context.currency)}</td></tr>
             <tr><td>Paid</td><td>${toMoney(sale.paidAmount, context.currency)}</td></tr>

@@ -19,6 +19,7 @@ import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { PartiesModule } from './parties/parties.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantScopeGuard } from './common/guards/tenant-scope.guard';
@@ -48,7 +49,8 @@ import { HealthController } from './health.controller';
     ReportsModule,
     SettingsModule,
     AdminModule,
-    AuditModule
+    AuditModule,
+    PartiesModule
   ],
   providers: [
     {

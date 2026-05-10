@@ -97,8 +97,10 @@ export function RecentBills({
                   {selectedBill ? (
                     <div className="space-y-4 text-sm">
                       <div className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2">
-                        <p>Party: {selectedBill.customerName || '-'}</p>
-                        <p>Phone: {selectedBill.customerPhone || '-'}</p>
+                        <p>Party: {selectedBill.partyName || selectedBill.customerName || '-'}</p>
+                        <p>Phone: {selectedBill.partyPhone || selectedBill.customerPhone || '-'}</p>
+                        <p>Party Type: {selectedBill.partyType || 'CLIENT'}</p>
+                        <p>Party %: {Number(selectedBill.partyPercent || 0).toFixed(2)}%</p>
                         <p>Status: {selectedBill.status}</p>
                         <p>Completed: {new Date(selectedBill.completedAt).toLocaleString()}</p>
                       </div>
@@ -136,7 +138,8 @@ export function RecentBills({
 
                       <div className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2">
                         <p>Subtotal: {currency(selectedBill.subtotal)}</p>
-                        <p>Party Discount: {currency(selectedBill.discountAmount)}</p>
+                        <p>Total Discount: {currency(selectedBill.discountAmount)}</p>
+                        <p>Party Amount: {currency(selectedBill.partyAmount || 0)}</p>
                         <p>VAT: {currency(selectedBill.taxAmount)}</p>
                         <p>Total: {currency(selectedBill.totalAmount)}</p>
                         <p>Paid: {currency(selectedBill.paidAmount)}</p>

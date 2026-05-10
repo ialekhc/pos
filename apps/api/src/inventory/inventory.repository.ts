@@ -83,9 +83,22 @@ export class InventoryRepository {
             sku: true,
             stockQuantity: true,
             lowStockThreshold: true,
-            status: true
+            status: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+                parent: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
           }
         },
+        party: true,
         createdBy: {
           select: {
             id: true,
@@ -104,12 +117,18 @@ export class InventoryRepository {
     return this.prisma.product.findUnique({ where: { id: productId } });
   }
 
+  findPartyById(partyId: string) {
+    return this.prisma.party.findUnique({ where: { id: partyId } });
+  }
+
   async adjustStock(params: {
     tenantId: string;
     productId: string;
     action: 'STOCK_IN' | 'STOCK_OUT' | 'ADJUSTMENT';
     quantity: number;
     reason?: string;
+    partyId?: string;
+    partyPercent?: number;
     userId?: string;
   }) {
     return this.prisma.$transaction(async (tx) => {
@@ -133,6 +152,18 @@ export class InventoryRepository {
         throw new Error('INSUFFICIENT_STOCK');
       }
 
+      const movementQuantity =
+        params.action === 'ADJUSTMENT'
+          ? Math.abs(nextQuantity - previousQuantity)
+          : params.quantity;
+      const stockValueAmount = movementQuantity * Number(product.costPrice);
+      const partyPercent =
+        params.partyPercent !== undefined ? Number(params.partyPercent.toFixed(2)) : undefined;
+      const partyAmount =
+        partyPercent !== undefined
+          ? Number(((stockValueAmount * partyPercent) / 100).toFixed(2))
+          : undefined;
+
       const updatedProduct = await tx.product.update({
         where: { id: params.productId },
         data: { stockQuantity: nextQuantity }
@@ -147,6 +178,9 @@ export class InventoryRepository {
           previousQuantity,
           newQuantity: nextQuantity,
           reason: params.reason,
+          partyId: params.partyId,
+          partyPercent,
+          partyAmount,
           createdById: params.userId
         }
       });

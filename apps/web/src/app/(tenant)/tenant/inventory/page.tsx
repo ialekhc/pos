@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api/client';
+import { Party } from '@/lib/types';
 
 type Product = {
   id: string;
@@ -32,6 +33,14 @@ type InventoryLog = {
   reason?: string;
   createdAt: string;
   product: Product;
+  party?: {
+    id: string;
+    type: 'VENDOR' | 'CLIENT';
+    name: string;
+    phone?: string | null;
+  } | null;
+  partyPercent?: string | null;
+  partyAmount?: string | null;
   createdBy?: {
     id: string;
     firstName: string;
@@ -131,6 +140,7 @@ function getActionBadgeVariant(action: InventoryLog['action']) {
 }
 
 export default function InventoryPage() {
+  const [vendors, setVendors] = useState<Party[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [logs, setLogs] = useState<InventoryLog[]>([]);
@@ -143,11 +153,15 @@ export default function InventoryPage() {
     action: AdjustmentAction;
     quantity: number;
     reason: string;
+    partyId: string;
+    partyPercent: number;
   }>({
     productId: '',
     action: 'STOCK_IN',
     quantity: 1,
-    reason: ''
+    reason: '',
+    partyId: '',
+    partyPercent: 0
   });
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -299,6 +313,12 @@ export default function InventoryPage() {
     return summaryPayload;
   };
 
+  const loadVendors = async () => {
+    const rows = await apiRequest<Party[]>('/parties?type=VENDOR');
+    setVendors(rows);
+    return rows;
+  };
+
   const loadLogs = async (nextFilters: LogFilters) => {
     setIsLogsLoading(true);
     try {
@@ -314,7 +334,7 @@ export default function InventoryPage() {
     setIsLoading(true);
     setError(null);
     try {
-      await Promise.all([loadProducts(), loadLowStock(), loadSummary(), loadLogs(filters)]);
+      await Promise.all([loadProducts(), loadLowStock(), loadSummary(), loadLogs(filters), loadVendors()]);
     } catch (requestError) {
       setError(parseRequestError(requestError));
     } finally {
@@ -353,7 +373,9 @@ export default function InventoryPage() {
           productId: form.productId,
           action: form.action,
           quantity: form.quantity,
-          reason: form.reason.trim() || undefined
+          reason: form.reason.trim() || undefined,
+          partyId: form.partyId || undefined,
+          partyPercent: form.partyId ? form.partyPercent : undefined
         })
       });
 
@@ -401,7 +423,9 @@ export default function InventoryPage() {
       productId: product.id,
       action: 'STOCK_IN',
       quantity: recommendedQty,
-      reason: 'Restock against low-stock alert'
+      reason: 'Restock against low-stock alert',
+      partyId: '',
+      partyPercent: 0
     });
     setNotice(`Prepared restock entry for ${product.name}.`);
     setError(null);
@@ -496,6 +520,44 @@ export default function InventoryPage() {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Vendor (Optional)</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.partyId}
+                onChange={(event) => {
+                  const vendorId = event.target.value;
+                  const vendor = vendors.find((row) => row.id === vendorId);
+                  setForm((state) => ({
+                    ...state,
+                    partyId: vendorId,
+                    partyPercent: vendor ? Number(vendor.defaultPercent || 0) : 0
+                  }));
+                }}
+              >
+                <option value="">No vendor linked</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Vendor Percent (%)</label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={form.partyPercent}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, partyPercent: Number(event.target.value || 0) }))
+                }
+              />
+            </div>
+
             <div className="md:col-span-2 xl:col-span-4 flex flex-wrap gap-2">
               <Button disabled={isSubmitting || !form.productId}>
                 {isSubmitting ? 'Applying...' : 'Apply Adjustment'}
@@ -508,7 +570,9 @@ export default function InventoryPage() {
                     ...state,
                     action: 'STOCK_IN',
                     quantity: 1,
-                    reason: ''
+                    reason: '',
+                    partyId: '',
+                    partyPercent: 0
                   }))
                 }
               >
@@ -736,7 +800,7 @@ export default function InventoryPage() {
           </form>
 
           <DataTable
-            headers={['When', 'Product', 'Action', 'Qty', 'Previous', 'New', 'Updated By', 'Reason']}
+            headers={['When', 'Product', 'Action', 'Qty', 'Previous', 'New', 'Party', 'Party %', 'Updated By', 'Reason']}
             rows={logs.map((log) => [
               new Date(log.createdAt).toLocaleString(),
               `${log.product.name} (${log.product.sku})`,
@@ -746,8 +810,12 @@ export default function InventoryPage() {
               log.quantity,
               log.previousQuantity,
               log.newQuantity,
+              log.party?.name || '-',
+              log.partyPercent ? `${Number(log.partyPercent).toFixed(2)}%` : '-',
               formatActorName(log),
-              log.reason ?? '-'
+              [log.reason ?? '-', log.partyAmount ? `Share: $${Number(log.partyAmount).toFixed(2)}` : '']
+                .filter(Boolean)
+                .join(' | ')
             ])}
             emptyMessage="No inventory log records found for the selected filters."
           />

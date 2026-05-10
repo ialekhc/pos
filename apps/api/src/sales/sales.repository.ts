@@ -36,7 +36,8 @@ export class SalesRepository {
       include: {
         items: { include: this.saleItemInclude },
         payments: true,
-        cashier: true
+        cashier: true,
+        party: true
       },
       orderBy: { createdAt: 'desc' },
       take
@@ -51,7 +52,8 @@ export class SalesRepository {
         payments: true,
         cashier: true,
         manager: true,
-        counter: true
+        counter: true,
+        party: true
       }
     });
   }
@@ -83,11 +85,23 @@ export class SalesRepository {
     });
   }
 
+  findPartyById(partyId: string) {
+    return this.prisma.party.findUnique({
+      where: { id: partyId }
+    });
+  }
+
   async createSaleWithStockReduction(params: {
     tenantId: string;
     cashierId: string;
     managerId?: string;
     counterId?: string;
+    partyId?: string;
+    partyType?: 'VENDOR' | 'CLIENT';
+    partyName?: string;
+    partyPhone?: string;
+    partyPercent?: number;
+    partyAmount?: number;
     customerName?: string;
     customerPhone?: string;
     notes?: string;
@@ -136,6 +150,12 @@ export class SalesRepository {
         data: {
           tenantId: params.tenantId,
           counterId: params.counterId,
+          partyId: params.partyId,
+          partyType: params.partyType,
+          partyName: params.partyName,
+          partyPhone: params.partyPhone,
+          partyPercent: new Prisma.Decimal(params.partyPercent ?? 0),
+          partyAmount: new Prisma.Decimal(params.partyAmount ?? 0),
           saleNumber,
           source: 'POS',
           status: 'COMPLETED',
@@ -167,7 +187,8 @@ export class SalesRepository {
         },
         include: {
           items: { include: this.saleItemInclude },
-          payments: true
+          payments: true,
+          party: true
         }
       });
 
@@ -185,7 +206,8 @@ export class SalesRepository {
       include: {
         items: { include: this.saleItemInclude },
         payments: true,
-        cashier: true
+        cashier: true,
+        party: true
       }
     });
   }
@@ -284,12 +306,86 @@ export class SalesRepository {
   }
 
   async cancelSale(params: { saleId: string; reason?: string }) {
-    return this.prisma.sale.update({
-      where: { id: params.saleId },
-      data: {
-        status: 'CANCELED',
-        notes: params.reason
+    return this.prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findUnique({
+        where: { id: params.saleId },
+        include: { items: { include: this.saleItemInclude }, payments: true }
+      });
+
+      if (!sale) {
+        throw new Error('SALE_NOT_FOUND');
       }
+
+      if (sale.status === 'REFUNDED') {
+        throw new Error('SALE_ALREADY_REFUNDED');
+      }
+
+      if (sale.status === 'CANCELED') {
+        throw new Error('SALE_ALREADY_CANCELED');
+      }
+
+      for (const item of sale.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (!product) {
+          continue;
+        }
+
+        const nextQuantity = product.stockQuantity + item.quantity;
+
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stockQuantity: nextQuantity }
+        });
+
+        await tx.inventoryLog.create({
+          data: {
+            tenantId: sale.tenantId,
+            productId: item.productId,
+            action: 'REFUND',
+            quantity: item.quantity,
+            previousQuantity: product.stockQuantity,
+            newQuantity: nextQuantity,
+            reason: params.reason ?? 'Stock restored after sale cancellation',
+            referenceType: 'sale_cancel',
+            referenceId: sale.id,
+            createdById: sale.cashierId
+          }
+        });
+      }
+
+      await tx.payment.updateMany({
+        where: { saleId: sale.id, status: 'SUCCESS' },
+        data: { status: 'REFUNDED' }
+      });
+
+      const refundedPayments = await tx.payment.findMany({
+        where: { saleId: sale.id, status: 'REFUNDED' }
+      });
+
+      for (const payment of refundedPayments) {
+        await tx.paymentTransaction.create({
+          data: {
+            tenantId: payment.tenantId,
+            paymentId: payment.id,
+            provider: payment.provider,
+            status: 'REFUNDED',
+            amount: payment.amount,
+            currency: payment.currency,
+            responsePayload: {
+              reason: params.reason ?? 'Canceled by operator'
+            },
+            reconciledAt: new Date()
+          }
+        });
+      }
+
+      return tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          status: 'CANCELED',
+          notes: params.reason ?? sale.notes
+        }
+      });
     });
   }
 

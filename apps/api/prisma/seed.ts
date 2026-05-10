@@ -550,6 +550,50 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       }
     });
 
+    const defaultClient = await prisma.party.upsert({
+      where: {
+        tenantId_type_name: {
+          tenantId: tenant.id,
+          type: 'CLIENT',
+          name: `${tenant.name} Walk-in Client`
+        }
+      },
+      update: {
+        phone: '+977-9800000000',
+        defaultPercent: new Prisma.Decimal(2)
+      },
+      create: {
+        tenantId: tenant.id,
+        type: 'CLIENT',
+        name: `${tenant.name} Walk-in Client`,
+        phone: '+977-9800000000',
+        defaultPercent: new Prisma.Decimal(2),
+        notes: 'Default POS customer'
+      }
+    });
+
+    await prisma.party.upsert({
+      where: {
+        tenantId_type_name: {
+          tenantId: tenant.id,
+          type: 'VENDOR',
+          name: `${tenant.name} Main Supplier`
+        }
+      },
+      update: {
+        phone: '+977-9811111111',
+        defaultPercent: new Prisma.Decimal(3)
+      },
+      create: {
+        tenantId: tenant.id,
+        type: 'VENDOR',
+        name: `${tenant.name} Main Supplier`,
+        phone: '+977-9811111111',
+        defaultPercent: new Prisma.Decimal(3),
+        notes: 'Default stock supplier'
+      }
+    });
+
     const beverages = await prisma.category.upsert({
       where: { tenantId_name: { tenantId: tenant.id, name: 'Beverages' } },
       update: {},
@@ -671,14 +715,22 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       (await prisma.sale.create({
         data: {
           tenantId: tenant.id,
+          partyId: defaultClient.id,
+          partyType: 'CLIENT',
+          partyName: defaultClient.name,
+          partyPhone: defaultClient.phone,
+          partyPercent: new Prisma.Decimal(2),
+          partyAmount: new Prisma.Decimal(0.14),
           saleNumber: demoSaleNumber,
           source: 'POS',
           status: 'COMPLETED',
+          customerName: defaultClient.name,
+          customerPhone: defaultClient.phone,
           subtotal: new Prisma.Decimal(6.8),
-          discountAmount: new Prisma.Decimal(0),
+          discountAmount: new Prisma.Decimal(0.14),
           taxAmount: new Prisma.Decimal(0.34),
-          totalAmount: new Prisma.Decimal(7.14),
-          paidAmount: new Prisma.Decimal(7.14),
+          totalAmount: new Prisma.Decimal(7),
+          paidAmount: new Prisma.Decimal(7),
           changeAmount: new Prisma.Decimal(0),
           cashierId: cashierUser.id,
           completedAt: new Date(),
@@ -727,7 +779,7 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
           method: 'CARD',
           status: 'SUCCESS',
           provider: 'MANUAL_CARD_TERMINAL',
-          amount: new Prisma.Decimal(7.14),
+          amount: new Prisma.Decimal(7),
           currency: tenant.currency,
           paidAt: new Date(),
           createdById: cashierUser.id,
@@ -752,7 +804,7 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
           provider: 'MANUAL_CARD_TERMINAL',
           providerTransactionId: txReference,
           status: 'SUCCESS',
-          amount: new Prisma.Decimal(7.14),
+          amount: new Prisma.Decimal(7),
           currency: tenant.currency,
           responsePayload: {
             acknowledged: true,

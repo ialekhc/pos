@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class StockAdjustmentDto {
   @IsString()
@@ -14,4 +14,14 @@ export class StockAdjustmentDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsOptional()
+  @IsString()
+  partyId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  partyPercent?: number;
 }

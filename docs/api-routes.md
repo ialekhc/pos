@@ -59,14 +59,23 @@
 
 ## Inventory
 - `POST /inventory/adjust`
+  - optional body: `partyId`, `partyPercent`
 - `GET /inventory/summary`
 - `GET /inventory/logs`
   - optional query: `search`, `productId`, `action`, `dateFrom`, `dateTo`, `take`
+
+## Parties (Vendors / Clients)
+- `GET /parties`
+  - optional query: `type=VENDOR|CLIENT`, `search`, `includeInactive=true|false`
+- `POST /parties`
+- `PATCH /parties/:partyId`
+- `DELETE /parties/:partyId`
 
 ## Sales / POS
 - `GET /sales` (`?take=15` optional, max 100)
 - `GET /sales/:saleId`
 - `POST /sales`
+  - optional body: `partyId`, `partyType`, `partyName`, `partyPhone`, `partyPercent`
 - `POST /sales/refund`
 - `PATCH /sales/:saleId/cancel`
 - `POST /sales/carts/hold`

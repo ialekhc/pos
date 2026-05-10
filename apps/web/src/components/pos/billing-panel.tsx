@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { PaymentMethod } from '@/lib/types';
+import { Party, PaymentMethod } from '@/lib/types';
 
 type PaymentLineDraft = {
   id: string;
@@ -16,6 +16,11 @@ type PaymentLineDraft = {
 const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'CARD', 'QR', 'WALLET', 'MANUAL'];
 
 export function BillingPanel({
+  clientParties,
+  selectedPartyId,
+  onSelectedPartyIdChange,
+  partyPercent,
+  onPartyPercentChange,
   customerName,
   customerPhone,
   notes,
@@ -49,6 +54,11 @@ export function BillingPanel({
   onPrintEstimation,
   canPrintEstimation
 }: {
+  clientParties: Party[];
+  selectedPartyId: string;
+  onSelectedPartyIdChange: (value: string) => void;
+  partyPercent: number;
+  onPartyPercentChange: (value: number) => void;
   customerName: string;
   customerPhone: string;
   notes: string;
@@ -94,11 +104,43 @@ export function BillingPanel({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Party Name (Optional)</label>
+          <label className="text-xs font-medium text-muted-foreground">Client (Optional)</label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={selectedPartyId}
+            onChange={(event) => onSelectedPartyIdChange(event.target.value)}
+          >
+            <option value="">Walk-in / Manual client</option>
+            {clientParties.map((party) => (
+              <option key={party.id} value={party.id}>
+                {party.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Client Percent (%)</label>
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            max={100}
+            value={partyPercent || ''}
+            onChange={(event) => onPartyPercentChange(Number(event.target.value || 0))}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            This percentage is applied automatically for the selected client on each bill.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Client Name (Optional)</label>
           <Input value={customerName} onChange={(event) => onCustomerNameChange(event.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Party Phone (Optional)</label>
+          <label className="text-xs font-medium text-muted-foreground">Client Phone (Optional)</label>
           <Input value={customerPhone} onChange={(event) => onCustomerPhoneChange(event.target.value)} />
         </div>
       </div>
@@ -115,7 +157,7 @@ export function BillingPanel({
 
       <div className="space-y-2 border-y py-3">
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Party-wise Discount</label>
+          <label className="text-xs font-medium text-muted-foreground">Additional Discount Amount</label>
           <Input
             type="number"
             step="0.01"

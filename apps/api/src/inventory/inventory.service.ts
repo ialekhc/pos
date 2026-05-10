@@ -76,6 +76,30 @@ export class InventoryService {
       throw new BadRequestException('Quantity must be at least 1 for stock in/out.');
     }
 
+    let partyId: string | undefined;
+    let partyPercent: number | undefined;
+
+    if (dto.partyId) {
+      const party = await this.inventoryRepository.findPartyById(dto.partyId);
+
+      if (!party || party.deletedAt) {
+        throw new NotFoundException('Selected party not found.');
+      }
+
+      if (party.tenantId !== actor.tenantId) {
+        throw new ForbiddenException('Selected party belongs to a different tenant.');
+      }
+
+      if (!party.isActive) {
+        throw new ForbiddenException('Selected party is inactive.');
+      }
+
+      partyId = party.id;
+      partyPercent = dto.partyPercent ?? Number(party.defaultPercent);
+    } else if (dto.partyPercent !== undefined) {
+      partyPercent = dto.partyPercent;
+    }
+
     try {
       const adjusted = await this.inventoryRepository.adjustStock({
         tenantId: product.tenantId,
@@ -83,6 +107,8 @@ export class InventoryService {
         action: dto.action,
         quantity: dto.quantity,
         reason: dto.reason?.trim() || undefined,
+        partyId,
+        partyPercent,
         userId: actor.userId
       });
 
@@ -95,7 +121,10 @@ export class InventoryService {
         details: {
           quantity: dto.quantity,
           previous: adjusted.log.previousQuantity,
-          next: adjusted.log.newQuantity
+          next: adjusted.log.newQuantity,
+          partyId: adjusted.log.partyId,
+          partyPercent: adjusted.log.partyPercent,
+          partyAmount: adjusted.log.partyAmount
         }
       });
 

@@ -39,6 +39,22 @@ export type Product = {
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'QR' | 'WALLET' | 'MANUAL';
 
+export type PartyType = 'VENDOR' | 'CLIENT';
+
+export type Party = {
+  id: string;
+  tenantId: string;
+  type: PartyType;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  taxId?: string | null;
+  defaultPercent: string;
+  notes?: string | null;
+  isActive: boolean;
+};
+
 export type SalePaymentInput = {
   method: PaymentMethod;
   amount: number;
@@ -86,6 +102,12 @@ export type PosSale = {
   billType?: 'SALE' | 'ESTIMATION';
   status: 'COMPLETED' | 'REFUNDED' | 'CANCELED';
   source: 'POS' | 'WEB' | 'API';
+  partyId?: string | null;
+  partyType?: PartyType | null;
+  partyName?: string | null;
+  partyPhone?: string | null;
+  partyPercent?: string;
+  partyAmount?: string;
   customerName?: string | null;
   customerPhone?: string | null;
   subtotal: string;
@@ -99,6 +121,7 @@ export type PosSale = {
   createdAt: string;
   items: PosSaleItem[];
   payments: PosPayment[];
+  party?: Party | null;
   cashier?: { firstName?: string | null; lastName?: string | null } | null;
 };
 

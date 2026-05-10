@@ -81,6 +81,11 @@ enum ReportPeriod {
   MONTHLY
 }
 
+enum PartyType {
+  VENDOR
+  CLIENT
+}
+
 enum SupportTier {
   BASIC
   PRIORITY
@@ -115,6 +120,7 @@ model Tenant {
   settings      Setting?
   reportSnapshots ReportSnapshot[]
   auditLogs     AuditLog[]
+  parties       Party[]
 
   @@index([status])
 }
@@ -311,11 +317,14 @@ model InventoryLog {
   id               String          @id @default(uuid())
   tenantId         String
   productId        String
+  partyId          String?
   action           InventoryAction
   quantity         Int
   previousQuantity Int
   newQuantity      Int
   reason           String?
+  partyPercent     Decimal?        @db.Decimal(5, 2)
+  partyAmount      Decimal?        @db.Decimal(12, 2)
   referenceType    String?
   referenceId      String?
   createdById      String?
@@ -323,10 +332,12 @@ model InventoryLog {
 
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  party            Party?          @relation(fields: [partyId], references: [id], onDelete: SetNull)
   createdBy        User?           @relation("InventoryActor", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, action])
   @@index([productId, createdAt])
+  @@index([tenantId, partyId])
 }
 
 model Cart {
@@ -373,6 +384,12 @@ model CartItem {
 model Sale {
   id               String       @id @default(uuid())
   tenantId         String
+  partyId          String?
+  partyType        PartyType?
+  partyName        String?
+  partyPhone       String?
+  partyPercent     Decimal      @default(0) @db.Decimal(5, 2)
+  partyAmount      Decimal      @default(0) @db.Decimal(12, 2)
   counterId        String?
   saleNumber       String
   source           OrderSource  @default(POS)
@@ -396,6 +413,7 @@ model Sale {
   updatedAt        DateTime     @updatedAt
 
   tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  party            Party?       @relation(fields: [partyId], references: [id], onDelete: SetNull)
   counter          Counter?     @relation(fields: [counterId], references: [id], onDelete: SetNull)
   cashier          User         @relation("CashierSales", fields: [cashierId], references: [id], onDelete: Restrict)
   manager          User?        @relation("ManagerSales", fields: [managerId], references: [id], onDelete: SetNull)
@@ -405,6 +423,31 @@ model Sale {
 
   @@unique([tenantId, saleNumber])
   @@index([tenantId, completedAt])
+  @@index([tenantId, partyId])
+}
+
+model Party {
+  id             String       @id @default(uuid())
+  tenantId       String
+  type           PartyType
+  name           String
+  phone          String?
+  email          String?
+  address        String?
+  taxId          String?
+  defaultPercent Decimal      @default(0) @db.Decimal(5, 2)
+  notes          String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales          Sale[]
+  inventoryLogs  InventoryLog[]
+
+  @@unique([tenantId, type, name])
+  @@index([tenantId, type, isActive])
 }
 
 model SaleItem {
