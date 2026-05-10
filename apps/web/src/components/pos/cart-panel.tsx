@@ -2,6 +2,7 @@
 
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type CartLine = {
   productId: string;
@@ -18,6 +19,7 @@ export function CartPanel({
   subtotal,
   tax,
   total,
+  currencyCode,
   taxLabel,
   onUpdateQuantity,
   onRemove,
@@ -28,6 +30,7 @@ export function CartPanel({
   subtotal: number;
   tax: number;
   total: number;
+  currencyCode?: string;
   taxLabel?: string;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemove: (productId: string) => void;
@@ -71,7 +74,7 @@ export function CartPanel({
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
-              <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+              <p className="font-medium">{formatCurrency(item.price * item.quantity, currencyCode)}</p>
             </div>
           </div>
         ))}
@@ -86,15 +89,15 @@ export function CartPanel({
       <div className="mt-4 space-y-2 border-t pt-4 text-sm">
         <div className="flex items-center justify-between">
           <span>Subtotal</span>
-          <span>${subtotal.toFixed(2)}</span>
+          <span>{formatCurrency(subtotal, currencyCode)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span>{taxLabel ?? 'Tax'}</span>
-          <span>${tax.toFixed(2)}</span>
+          <span>{formatCurrency(tax, currencyCode)}</span>
         </div>
         <div className="flex items-center justify-between text-base font-semibold">
           <span>Total</span>
-          <span>${total.toFixed(2)}</span>
+          <span>{formatCurrency(total, currencyCode)}</span>
         </div>
       </div>
 

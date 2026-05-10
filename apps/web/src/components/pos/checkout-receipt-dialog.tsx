@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Printer, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,19 +10,8 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { PosSale } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils/currency';
 import { ReceiptPrintContext, printSaleReceipt } from './receipt-print';
-
-function toMoney(amount: string | number, currency: string) {
-  const numeric = Number(amount || 0);
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency
-    }).format(numeric);
-  } catch {
-    return `$${numeric.toFixed(2)}`;
-  }
-}
 
 function categoryLabel(category?: { name: string; parent?: { name: string } | null } | null) {
   if (!category) {
@@ -44,11 +34,23 @@ export function CheckoutReceiptDialog({
   sale: PosSale | null;
   printContext: ReceiptPrintContext;
 }) {
-  const print = () => {
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setPrintError(null);
+    }
+  }, [open, sale?.id]);
+
+  const print = async () => {
     if (!sale) {
       return;
     }
-    printSaleReceipt(sale, printContext);
+    setPrintError(null);
+    const printed = await printSaleReceipt(sale, printContext);
+    if (!printed) {
+      setPrintError('Unable to open the print dialog. Please allow popups/print permission and try again.');
+    }
   };
 
   return (
@@ -84,15 +86,15 @@ export function CheckoutReceiptDialog({
               </p>
               <p>
                 <span className="text-muted-foreground">Party Amount:</span>{' '}
-                {toMoney(sale.partyAmount || 0, printContext.currency)}
+                {formatCurrency(sale.partyAmount || 0, printContext.currency)}
               </p>
               <p>
                 <span className="text-muted-foreground">Total:</span>{' '}
-                {toMoney(sale.totalAmount, printContext.currency)}
+                {formatCurrency(sale.totalAmount, printContext.currency)}
               </p>
               <p>
                 <span className="text-muted-foreground">Paid:</span>{' '}
-                {toMoney(sale.paidAmount, printContext.currency)}
+                {formatCurrency(sale.paidAmount, printContext.currency)}
               </p>
             </div>
 
@@ -118,7 +120,7 @@ export function CheckoutReceiptDialog({
                       </td>
                       <td className="px-3 py-2">{item.ioLabel ?? (sale.billType === 'ESTIMATION' ? 'ESTIMATE' : 'OUT')}</td>
                       <td className="px-3 py-2">{item.quantity}</td>
-                      <td className="px-3 py-2">{toMoney(item.lineTotal, printContext.currency)}</td>
+                      <td className="px-3 py-2">{formatCurrency(item.lineTotal, printContext.currency)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -135,6 +137,7 @@ export function CheckoutReceiptDialog({
                 Print Receipt
               </Button>
             </div>
+            {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No receipt data available.</p>

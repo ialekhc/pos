@@ -9,6 +9,7 @@ import { DataTable } from '@/components/layout/data-table';
 import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 import { Product } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type Category = {
   id: string;
@@ -769,7 +770,7 @@ export default function ProductsPage() {
                   ? `${product.category.parent.name} > ${product.category.name}`
                   : product.category?.name ?? '-',
               product.hsCode ?? '-',
-              `$${Number(product.price).toFixed(2)}`,
+              formatCurrency(product.price),
               product.stockQuantity,
               product.lowStockThreshold,
               product.status,

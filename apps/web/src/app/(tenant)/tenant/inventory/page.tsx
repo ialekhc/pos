@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api/client';
 import { Party } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type Product = {
   id: string;
@@ -813,7 +814,7 @@ export default function InventoryPage() {
               log.party?.name || '-',
               log.partyPercent ? `${Number(log.partyPercent).toFixed(2)}%` : '-',
               formatActorName(log),
-              [log.reason ?? '-', log.partyAmount ? `Share: $${Number(log.partyAmount).toFixed(2)}` : '']
+              [log.reason ?? '-', log.partyAmount ? `Share: ${formatCurrency(log.partyAmount)}` : '']
                 .filter(Boolean)
                 .join(' | ')
             ])}

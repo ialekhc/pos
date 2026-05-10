@@ -18,7 +18,7 @@ export class SettingsRepository {
         tenantId,
         businessName: this.unwrapScalar<string>(data.businessName) ?? 'Business',
         taxRate: this.unwrapScalar<Prisma.Decimal | number>(data.taxRate) ?? 0,
-        currency: this.unwrapScalar<string>(data.currency) ?? 'USD',
+        currency: this.unwrapScalar<string>(data.currency) ?? 'NPR',
         timezone: this.unwrapScalar<string>(data.timezone) ?? 'UTC',
         receiptFooter: this.unwrapScalar<string>(data.receiptFooter),
         logoUrl: this.unwrapScalar<string>(data.logoUrl),

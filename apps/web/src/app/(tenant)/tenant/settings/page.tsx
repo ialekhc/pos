@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiRequest } from '@/lib/api/client';
+import { resolveCurrencyCode } from '@/lib/utils/currency';
 
 type SettingsForm = {
   businessName: string;
@@ -39,7 +40,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState<SettingsForm>({
     businessName: '',
     taxRate: 5,
-    currency: 'USD',
+    currency: 'NPR',
     timezone: 'UTC',
     receiptFooter: 'Thank you for shopping with us!'
   });
@@ -59,7 +60,7 @@ export default function SettingsPage() {
         setForm({
           businessName: data.businessName ?? '',
           taxRate: Number(data.taxRate ?? 0),
-          currency: (data.currency ?? 'USD').toUpperCase(),
+          currency: resolveCurrencyCode(data.currency),
           timezone: data.timezone ?? 'UTC',
           receiptFooter: data.receiptFooter ?? ''
         });
@@ -150,7 +151,7 @@ export default function SettingsPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Currency Code</label>
               <Input
-                placeholder="USD"
+                placeholder="NPR"
                 value={form.currency}
                 onChange={(event) =>
                   setForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))

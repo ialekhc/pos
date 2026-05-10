@@ -13,6 +13,7 @@ import { useOfflineCart } from '@/hooks/use-offline-cart';
 import { apiRequest } from '@/lib/api/client';
 import { useSessionStore } from '@/lib/stores/use-session-store';
 import { Party, PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
+import { formatCurrency, resolveCurrencyCode } from '@/lib/utils/currency';
 
 type PaymentLineDraft = {
   id: string;
@@ -189,7 +190,7 @@ export default function PosPage() {
   const receiptContext = useMemo<ReceiptPrintContext>(
     () => ({
       businessName: settings?.businessName || sessionUser?.tenantName || 'POS Cloud',
-      currency: settings?.currency || 'USD',
+      currency: resolveCurrencyCode(settings?.currency),
       receiptFooter: settings?.receiptFooter || undefined,
       timezone: settings?.timezone || undefined,
       cashierName: `${sessionUser?.firstName ?? ''} ${sessionUser?.lastName ?? ''}`.trim() || undefined
@@ -299,7 +300,7 @@ export default function PosPage() {
     };
   };
 
-  const printEstimation = () => {
+  const printEstimation = async () => {
     if (!currentCart.length) {
       setError('Add at least one item before printing an estimation bill.');
       return;
@@ -390,13 +391,19 @@ export default function PosPage() {
 
     setLastCompletedSale(estimateSale);
     setReceiptDialogOpen(true);
-    printSaleReceipt(estimateSale, receiptContext, {
+    const printed = await printSaleReceipt(estimateSale, receiptContext, {
       billType: 'ESTIMATION',
       vatEnabled,
       ioLabel: 'ESTIMATE'
     });
+    if (printed) {
+      setMessage(`Estimation bill ${estimateSale.saleNumber} generated.`);
+      setError(null);
+      return;
+    }
+
     setMessage(`Estimation bill ${estimateSale.saleNumber} generated.`);
-    setError(null);
+    setError('Unable to open the print dialog. Please allow popups/print permission and retry printing.');
   };
 
   const checkout = async () => {
@@ -411,7 +418,7 @@ export default function PosPage() {
     }
 
     if (balanceDue > 0) {
-      setError(`Payment is short by $${balanceDue.toFixed(2)}.`);
+      setError(`Payment is short by ${formatCurrency(balanceDue, receiptContext.currency)}.`);
       return;
     }
 
@@ -455,11 +462,16 @@ export default function PosPage() {
       setLastCompletedSale(enrichedSale);
       setReceiptDialogOpen(true);
       if (autoPrintReceipt) {
-        printSaleReceipt(enrichedSale, receiptContext, {
+        const printed = await printSaleReceipt(enrichedSale, receiptContext, {
           billType: 'SALE',
           vatEnabled,
           ioLabel: 'OUT'
         });
+        if (!printed) {
+          setError(
+            'Sale was completed, but the print dialog could not be opened. Please use Print from the receipt dialog.'
+          );
+        }
       }
       clear();
       resetBillingState();
@@ -552,6 +564,7 @@ export default function PosPage() {
           subtotal={subtotal}
           tax={tax}
           total={total}
+          currencyCode={receiptContext.currency}
           taxLabel={vatEnabled ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT (Disabled)'}
           onUpdateQuantity={updateQuantity}
           onRemove={removeItem}
@@ -597,6 +610,7 @@ export default function PosPage() {
           subtotal={subtotal}
           tax={tax}
           total={total}
+          currencyCode={receiptContext.currency}
           splitMode={splitMode}
           onSplitModeChange={(value) => {
             setSplitMode(value);

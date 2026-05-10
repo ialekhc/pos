@@ -44,7 +44,7 @@ export class TenantsService {
           name: dto.name,
           slug: dto.slug,
           timezone: dto.timezone ?? 'UTC',
-          currency: dto.currency ?? 'USD',
+          currency: dto.currency ?? 'NPR',
           domain: dto.domain
         }
       });

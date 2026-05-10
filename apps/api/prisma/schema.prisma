@@ -99,7 +99,7 @@ model Tenant {
   slug          String          @unique
   status        TenantStatus    @default(ACTIVE)
   timezone      String          @default("UTC")
-  currency      String          @default("USD")
+  currency      String          @default("NPR")
   domain        String?
   logoUrl       String?
   createdAt     DateTime        @default(now())
@@ -528,7 +528,7 @@ model Setting {
   taxRate          Decimal      @default(0) @db.Decimal(5, 2)
   receiptFooter    String?
   logoUrl          String?
-  currency         String       @default("USD")
+  currency         String       @default("NPR")
   timezone         String       @default("UTC")
   paymentConfig    Json?
   receiptConfig    Json?

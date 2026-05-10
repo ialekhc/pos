@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
 import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type PlanFeature = {
   id: string;
@@ -271,7 +272,7 @@ export default function SuperAdminPlansPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Total Plans" value={metrics.totalPlans} />
-        <MetricCard title="Avg Monthly Price" value={`$${metrics.avgMonthlyPrice.toFixed(2)}`} />
+        <MetricCard title="Avg Monthly Price" value={formatCurrency(metrics.avgMonthlyPrice)} />
         <MetricCard title="Enabled Features (Selected)" value={metrics.selectedEnabledFeatures} />
         <MetricCard title="Total Features (Selected)" value={metrics.selectedTotalFeatures} />
       </section>
@@ -295,7 +296,9 @@ export default function SuperAdminPlansPage() {
                 <p className="text-sm font-semibold">
                   {plan.name} ({plan.code})
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">${Number(plan.monthlyPrice).toFixed(2)} / month</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatCurrency(plan.monthlyPrice)} / month
+                </p>
               </button>
             ))}
           </div>

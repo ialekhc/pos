@@ -91,7 +91,7 @@ export class PaymentsService {
       saleId: sale.id,
       method: dto.method,
       amount: dto.amount,
-      currency: dto.currency ?? 'USD',
+      currency: dto.currency ?? 'NPR',
       actorId: actor.userId
     });
 

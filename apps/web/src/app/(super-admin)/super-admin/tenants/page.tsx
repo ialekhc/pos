@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
 import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type TenantStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
@@ -46,7 +47,7 @@ export default function SuperAdminTenantsPage() {
     name: '',
     slug: '',
     timezone: 'Australia/Sydney',
-    currency: 'AUD',
+    currency: 'NPR',
     domain: '',
     initialPlanId: ''
   });
@@ -62,7 +63,7 @@ export default function SuperAdminTenantsPage() {
     () =>
       plans.map((plan) => ({
         value: plan.id,
-        label: `${plan.name} (${plan.code}) - $${Number(plan.monthlyPrice).toFixed(2)}/mo`
+        label: `${plan.name} (${plan.code}) - ${formatCurrency(plan.monthlyPrice)}/mo`
       })),
     [plans]
   );
@@ -116,7 +117,7 @@ export default function SuperAdminTenantsPage() {
         name: '',
         slug: '',
         timezone: 'Australia/Sydney',
-        currency: 'AUD',
+        currency: 'NPR',
         domain: '',
         initialPlanId: ''
       });
@@ -308,7 +309,7 @@ export default function SuperAdminTenantsPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Currency</label>
               <Input
-                placeholder="USD"
+                placeholder="NPR"
                 value={form.currency}
                 onChange={(event) => setForm((state) => ({ ...state, currency: event.target.value.toUpperCase() }))}
                 required

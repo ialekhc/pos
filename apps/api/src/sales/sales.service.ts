@@ -217,7 +217,7 @@ export class SalesService {
         saleId: sale.id,
         method: payment.method,
         amount: payment.amount,
-        currency: 'USD',
+        currency: 'NPR',
         actorId: actor.userId
       });
 

@@ -7,6 +7,7 @@ import { DataTable } from '@/components/layout/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type AdminDashboardResponse = {
   metrics: {
@@ -78,7 +79,7 @@ export default function SuperAdminDashboardPage() {
         <MetricCard title="Total Orders" value={data?.metrics.totalOrders ?? '-'} />
         <MetricCard
           title="Revenue (All Tenants)"
-          value={`$${(data?.metrics.totalRevenue ?? 0).toLocaleString()}`}
+          value={formatCurrency(data?.metrics.totalRevenue ?? 0)}
         />
       </section>
 

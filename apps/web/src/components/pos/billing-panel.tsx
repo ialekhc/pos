@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Party, PaymentMethod } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type PaymentLineDraft = {
   id: string;
@@ -35,6 +36,7 @@ export function BillingPanel({
   subtotal,
   tax,
   total,
+  currencyCode,
   splitMode,
   onSplitModeChange,
   singlePaymentMethod,
@@ -73,6 +75,7 @@ export function BillingPanel({
   subtotal: number;
   tax: number;
   total: number;
+  currencyCode?: string;
   splitMode: boolean;
   onSplitModeChange: (value: boolean) => void;
   singlePaymentMethod: PaymentMethod;
@@ -193,15 +196,15 @@ export function BillingPanel({
         <div className="grid gap-2 text-sm">
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>{formatCurrency(subtotal, currencyCode)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>{vatEnabled ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT (Disabled)'}</span>
-            <span>${tax.toFixed(2)}</span>
+            <span>{formatCurrency(tax, currencyCode)}</span>
           </div>
           <div className="flex items-center justify-between text-base font-semibold">
             <span>Bill Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span>{formatCurrency(total, currencyCode)}</span>
           </div>
         </div>
       </div>
@@ -301,15 +304,17 @@ export function BillingPanel({
       <div className="grid gap-2 rounded-md border bg-background p-3 text-sm">
         <div className="flex items-center justify-between">
           <span>Paid</span>
-          <span>${paidTotal.toFixed(2)}</span>
+          <span>{formatCurrency(paidTotal, currencyCode)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span>Balance Due</span>
-          <span className={balanceDue > 0 ? 'font-medium text-destructive' : ''}>${balanceDue.toFixed(2)}</span>
+          <span className={balanceDue > 0 ? 'font-medium text-destructive' : ''}>
+            {formatCurrency(balanceDue, currencyCode)}
+          </span>
         </div>
         <div className="flex items-center justify-between">
           <span>Change</span>
-          <span>${changeAmount.toFixed(2)}</span>
+          <span>{formatCurrency(changeAmount, currencyCode)}</span>
         </div>
       </div>
 

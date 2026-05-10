@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/layout/data-table';
 import { apiRequest } from '@/lib/api/client';
 import { useRealtimeSync } from '@/hooks/use-realtime-sync';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type DashboardData = {
   totals: {
@@ -75,11 +76,11 @@ export default function TenantDashboardPage() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Today Revenue"
-          value={`$${Number(summary?.totals._sum.totalAmount ?? 0).toFixed(2)}`}
+          value={formatCurrency(summary?.totals._sum.totalAmount ?? 0)}
         />
         <MetricCard title="Transactions" value={summary?.totals._count._all ?? '-'} />
-        <MetricCard title="Tax Collected" value={`$${Number(summary?.totals._sum.taxAmount ?? 0).toFixed(2)}`} />
-        <MetricCard title="Discount Given" value={`$${Number(summary?.totals._sum.discountAmount ?? 0).toFixed(2)}`} />
+        <MetricCard title="Tax Collected" value={formatCurrency(summary?.totals._sum.taxAmount ?? 0)} />
+        <MetricCard title="Discount Given" value={formatCurrency(summary?.totals._sum.discountAmount ?? 0)} />
       </section>
 
       <Card>

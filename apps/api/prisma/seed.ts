@@ -367,14 +367,14 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       slug: 'sunrise-mart',
       planCode: 'SILVER',
       timezone: 'Asia/Kolkata',
-      currency: 'INR'
+      currency: 'NPR'
     },
     {
       name: 'Metro Retail Hub',
       slug: 'metro-retail-hub',
       planCode: 'GOLD',
       timezone: 'Australia/Sydney',
-      currency: 'AUD'
+      currency: 'NPR'
     }
   ];
 

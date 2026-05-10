@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MetricCard } from '@/components/layout/metric-card';
 import { DataTable } from '@/components/layout/data-table';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 export default function ReportsPage() {
   const [summary, setSummary] = useState<any>(null);
@@ -38,10 +39,13 @@ export default function ReportsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           title="Weekly Revenue"
-          value={`$${Number(summary?.totals?._sum?.totalAmount ?? 0).toFixed(2)}`}
+          value={formatCurrency(summary?.totals?._sum?.totalAmount ?? 0)}
         />
         <MetricCard title="Weekly Orders" value={summary?.totals?._count?._all ?? '-'} />
-        <MetricCard title="Payments Collected" value={`$${Number(summary?.totals?._sum?.paidAmount ?? 0).toFixed(2)}`} />
+        <MetricCard
+          title="Payments Collected"
+          value={formatCurrency(summary?.totals?._sum?.paidAmount ?? 0)}
+        />
       </div>
 
       <Card>
@@ -55,7 +59,7 @@ export default function ReportsPage() {
               row.productName,
               row.sku,
               row._sum?.quantity ?? 0,
-              `$${Number(row._sum?.lineTotal ?? 0).toFixed(2)}`
+              formatCurrency(row._sum?.lineTotal ?? 0)
             ])}
             emptyMessage="Top-product analytics requires eligible plans (Silver and above by default)."
           />
@@ -74,7 +78,7 @@ export default function ReportsPage() {
                 row.method,
                 row.status,
                 row._count?._all ?? 0,
-                `$${Number(row._sum?.amount ?? 0).toFixed(2)}`
+                formatCurrency(row._sum?.amount ?? 0)
               ])}
             />
           </CardContent>
@@ -90,7 +94,7 @@ export default function ReportsPage() {
               rows={cashierWise.map((row) => [
                 row.cashier ? `${row.cashier.firstName} ${row.cashier.lastName}` : row.cashierId,
                 row._count?._all ?? 0,
-                `$${Number(row._sum?.totalAmount ?? 0).toFixed(2)}`
+                formatCurrency(row._sum?.totalAmount ?? 0)
               ])}
             />
           </CardContent>

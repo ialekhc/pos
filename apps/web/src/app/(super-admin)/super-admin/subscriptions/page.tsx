@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/layout/data-table';
 import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type TenantOption = {
   id: string;
@@ -63,7 +64,7 @@ export default function SuperAdminSubscriptionsPage() {
     () =>
       plans.map((plan) => ({
         value: plan.id,
-        label: `${plan.name} (${plan.code}) - $${Number(plan.monthlyPrice).toFixed(2)}/mo`
+        label: `${plan.name} (${plan.code}) - ${formatCurrency(plan.monthlyPrice)}/mo`
       })),
     [plans]
   );

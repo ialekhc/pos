@@ -11,11 +11,8 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { PosSale } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils/currency';
 import { ReceiptPrintContext, printSaleReceipt } from './receipt-print';
-
-function currency(value: string | number) {
-  return `$${Number(value).toFixed(2)}`;
-}
 
 function categoryLabel(category?: { name: string; parent?: { name: string } | null } | null) {
   if (!category) {
@@ -39,17 +36,24 @@ export function RecentBills({
   receiptContext: ReceiptPrintContext;
 }) {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const selectedBill = useMemo(
     () => bills.find((bill) => bill.id === selectedBillId) ?? null,
     [bills, selectedBillId]
   );
 
-  const printBill = () => {
-    if (!selectedBill) {
+  const printBill = async (bill?: PosSale | null) => {
+    const targetBill = bill ?? selectedBill;
+    if (!targetBill) {
       return;
     }
-    printSaleReceipt(selectedBill, receiptContext);
+
+    setPrintError(null);
+    const printed = await printSaleReceipt(targetBill, receiptContext);
+    if (!printed) {
+      setPrintError('Unable to open the print dialog. Please allow popups/print permission and retry.');
+    }
   };
 
   return (
@@ -61,6 +65,7 @@ export function RecentBills({
           Refresh
         </Button>
       </div>
+      {printError ? <p className="text-sm text-destructive">{printError}</p> : null}
 
       <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
         {bills.map((bill) => (
@@ -70,11 +75,13 @@ export function RecentBills({
               <p className="text-xs text-muted-foreground">{new Date(bill.completedAt).toLocaleString()}</p>
             </div>
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">{currency(bill.totalAmount)}</p>
+              <p className="text-sm font-semibold">{formatCurrency(bill.totalAmount, receiptContext.currency)}</p>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => printSaleReceipt(bill, receiptContext)}
+                onClick={() => {
+                  void printBill(bill);
+                }}
               >
                 <Printer className="h-3.5 w-3.5" />
               </Button>
@@ -128,8 +135,12 @@ export function RecentBills({
                                 </td>
                                 <td className="px-3 py-2">{item.ioLabel ?? 'OUT'}</td>
                                 <td className="px-3 py-2">{item.quantity}</td>
-                                <td className="px-3 py-2">{currency(item.unitPrice)}</td>
-                                <td className="px-3 py-2">{currency(item.lineTotal)}</td>
+                                <td className="px-3 py-2">
+                                  {formatCurrency(item.unitPrice, receiptContext.currency)}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {formatCurrency(item.lineTotal, receiptContext.currency)}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -137,13 +148,13 @@ export function RecentBills({
                       </div>
 
                       <div className="grid gap-2 rounded-md border bg-background p-3 sm:grid-cols-2">
-                        <p>Subtotal: {currency(selectedBill.subtotal)}</p>
-                        <p>Total Discount: {currency(selectedBill.discountAmount)}</p>
-                        <p>Party Amount: {currency(selectedBill.partyAmount || 0)}</p>
-                        <p>VAT: {currency(selectedBill.taxAmount)}</p>
-                        <p>Total: {currency(selectedBill.totalAmount)}</p>
-                        <p>Paid: {currency(selectedBill.paidAmount)}</p>
-                        <p>Change: {currency(selectedBill.changeAmount)}</p>
+                        <p>Subtotal: {formatCurrency(selectedBill.subtotal, receiptContext.currency)}</p>
+                        <p>Total Discount: {formatCurrency(selectedBill.discountAmount, receiptContext.currency)}</p>
+                        <p>Party Amount: {formatCurrency(selectedBill.partyAmount || 0, receiptContext.currency)}</p>
+                        <p>VAT: {formatCurrency(selectedBill.taxAmount, receiptContext.currency)}</p>
+                        <p>Total: {formatCurrency(selectedBill.totalAmount, receiptContext.currency)}</p>
+                        <p>Paid: {formatCurrency(selectedBill.paidAmount, receiptContext.currency)}</p>
+                        <p>Change: {formatCurrency(selectedBill.changeAmount, receiptContext.currency)}</p>
                       </div>
 
                       <div className="overflow-x-auto rounded-md border">
@@ -160,7 +171,9 @@ export function RecentBills({
                               <tr key={payment.id} className="border-t">
                                 <td className="px-3 py-2">{payment.method}</td>
                                 <td className="px-3 py-2">{payment.status}</td>
-                                <td className="px-3 py-2">{currency(payment.amount)}</td>
+                                <td className="px-3 py-2">
+                                  {formatCurrency(payment.amount, receiptContext.currency)}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -168,7 +181,13 @@ export function RecentBills({
                       </div>
 
                       <div className="flex justify-end">
-                        <Button onClick={printBill}>Print Bill</Button>
+                        <Button
+                          onClick={() => {
+                            void printBill();
+                          }}
+                        >
+                          Print Bill
+                        </Button>
                       </div>
                     </div>
                   ) : (

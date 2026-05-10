@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MetricCard } from '@/components/layout/metric-card';
 import { DataTable } from '@/components/layout/data-table';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'EXPIRED' | 'CANCELED';
 
@@ -70,11 +71,7 @@ function formatFeatureKey(key: string) {
 }
 
 function toCurrency(value: string | number | null | undefined) {
-  const amount = Number(value ?? 0);
-  if (!Number.isFinite(amount)) {
-    return '-';
-  }
-  return `$${amount.toFixed(2)}`;
+  return formatCurrency(value ?? 0);
 }
 
 function toReadableDate(value?: string | null) {

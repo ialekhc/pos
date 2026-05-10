@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/layout/data-table';
 import { apiRequest } from '@/lib/api/client';
+import { formatCurrency } from '@/lib/utils/currency';
 
 type Sale = {
   id: string;
@@ -60,8 +61,8 @@ export default function SalesPage() {
         rows={sales.map((sale) => [
           sale.saleNumber,
           sale.status,
-          `$${Number(sale.totalAmount).toFixed(2)}`,
-          `$${Number(sale.paidAmount).toFixed(2)}`,
+          formatCurrency(sale.totalAmount),
+          formatCurrency(sale.paidAmount),
           `${sale.cashier?.firstName ?? ''} ${sale.cashier?.lastName ?? ''}`.trim() || '-',
           new Date(sale.completedAt).toLocaleString(),
           <div key={`${sale.id}-actions`} className="flex gap-2">
