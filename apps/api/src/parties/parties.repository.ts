@@ -26,6 +26,8 @@ export class PartiesRepository {
                 { name: { contains: search, mode: 'insensitive' } },
                 { phone: { contains: search, mode: 'insensitive' } },
                 { email: { contains: search, mode: 'insensitive' } },
+                { province: { contains: search, mode: 'insensitive' } },
+                { district: { contains: search, mode: 'insensitive' } },
                 { taxId: { contains: search, mode: 'insensitive' } }
               ]
             }

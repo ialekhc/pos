@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiRequest } from '@/lib/api/client';
+import { NEPAL_PROVINCES } from '@/lib/constants/nepal-locations';
 import { Party, PartyType } from '@/lib/types';
 import { useSessionStore } from '@/lib/stores/use-session-store';
 
@@ -17,6 +18,8 @@ type PartyForm = {
   name: string;
   phone: string;
   email: string;
+  province: string;
+  district: string;
   address: string;
   taxId: string;
   defaultPercent: number;
@@ -29,6 +32,8 @@ const EMPTY_FORM: PartyForm = {
   name: '',
   phone: '',
   email: '',
+  province: '',
+  district: '',
   address: '',
   taxId: '',
   defaultPercent: 0,
@@ -49,6 +54,8 @@ function normalizeForm(form: PartyForm) {
     name: form.name.trim(),
     phone: form.phone.trim() || undefined,
     email: form.email.trim() || undefined,
+    province: form.province || undefined,
+    district: form.district || undefined,
     address: form.address.trim() || undefined,
     taxId: form.taxId.trim() || undefined,
     defaultPercent: form.defaultPercent,
@@ -88,6 +95,15 @@ export default function PartiesPage() {
     void loadParties();
   }, []);
 
+  const availableDistricts = useMemo(() => {
+    if (!form.province) {
+      return [];
+    }
+
+    const province = NEPAL_PROVINCES.find((entry) => entry.provinceName === form.province);
+    return province?.districts ?? [];
+  }, [form.province]);
+
   const visibleRows = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -98,7 +114,14 @@ export default function PartiesPage() {
           return true;
         }
 
-        return [party.name, party.phone || '', party.email || '', party.taxId || '']
+        return [
+          party.name,
+          party.phone || '',
+          party.email || '',
+          party.province || '',
+          party.district || '',
+          party.taxId || ''
+        ]
           .some((value) => value.toLowerCase().includes(query));
       });
   }, [parties, search, filterType]);
@@ -146,6 +169,8 @@ export default function PartiesPage() {
       name: party.name,
       phone: party.phone || '',
       email: party.email || '',
+      province: party.province || '',
+      district: party.district || '',
       address: party.address || '',
       taxId: party.taxId || '',
       defaultPercent: Number(party.defaultPercent || 0),
@@ -234,6 +259,51 @@ export default function PartiesPage() {
             </div>
 
             <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Province</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.province}
+                onChange={(event) => {
+                  const provinceName = event.target.value;
+                  const matchedProvince = NEPAL_PROVINCES.find(
+                    (entry) => entry.provinceName === provinceName
+                  );
+                  const nextDistricts = matchedProvince?.districts ?? [];
+                  setForm((state) => ({
+                    ...state,
+                    province: provinceName,
+                    district: provinceName && nextDistricts.includes(state.district) ? state.district : ''
+                  }));
+                }}
+                disabled={!canWrite}
+              >
+                <option value="">Select Province</option>
+                {NEPAL_PROVINCES.map((province) => (
+                  <option key={province.provinceNo} value={province.provinceName}>
+                    {province.provinceName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">District</label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.district}
+                onChange={(event) => setForm((state) => ({ ...state, district: event.target.value }))}
+                disabled={!canWrite || !form.province}
+              >
+                <option value="">{form.province ? 'Select District' : 'Select Province First'}</option>
+                {availableDistricts.map((district) => (
+                  <option key={district} value={district}>
+                    {district}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Tax ID / PAN / VAT</label>
               <Input
                 value={form.taxId}
@@ -255,6 +325,9 @@ export default function PartiesPage() {
                 }
                 disabled={!canWrite}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Percentage used by default for this vendor/client in POS or inventory entries.
+              </p>
             </div>
 
             <div className="space-y-1.5 xl:col-span-2">
@@ -316,7 +389,7 @@ export default function PartiesPage() {
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-xs font-medium text-muted-foreground">Search</label>
               <Input
-                placeholder="Name, phone, email, tax ID"
+                placeholder="Name, phone, email, province, district, tax ID"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -341,12 +414,25 @@ export default function PartiesPage() {
           </div>
 
           <DataTable
-            headers={['Type', 'Name', 'Phone', 'Email', 'Tax ID', 'Default %', 'Status', 'Actions']}
+            headers={[
+              'Type',
+              'Name',
+              'Phone',
+              'Email',
+              'Province',
+              'District',
+              'Tax ID',
+              'Default %',
+              'Status',
+              'Actions'
+            ]}
             rows={visibleRows.map((party) => [
               party.type,
               party.name,
               party.phone || '-',
               party.email || '-',
+              party.province || '-',
+              party.district || '-',
               party.taxId || '-',
               `${Number(party.defaultPercent || 0).toFixed(2)}%`,
               <Badge key={`${party.id}-status`} variant={party.isActive ? 'default' : 'secondary'}>

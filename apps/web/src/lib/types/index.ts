@@ -49,6 +49,8 @@ export type Party = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  province?: string | null;
+  district?: string | null;
   taxId?: string | null;
   defaultPercent: string;
   notes?: string | null;

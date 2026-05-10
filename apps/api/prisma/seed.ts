@@ -560,6 +560,8 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       },
       update: {
         phone: '+977-9800000000',
+        province: 'Bagmati Province',
+        district: 'Kathmandu',
         defaultPercent: new Prisma.Decimal(2)
       },
       create: {
@@ -567,6 +569,8 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
         type: 'CLIENT',
         name: `${tenant.name} Walk-in Client`,
         phone: '+977-9800000000',
+        province: 'Bagmati Province',
+        district: 'Kathmandu',
         defaultPercent: new Prisma.Decimal(2),
         notes: 'Default POS customer'
       }
@@ -582,6 +586,8 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
       },
       update: {
         phone: '+977-9811111111',
+        province: 'Bagmati Province',
+        district: 'Kathmandu',
         defaultPercent: new Prisma.Decimal(3)
       },
       create: {
@@ -589,6 +595,8 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
         type: 'VENDOR',
         name: `${tenant.name} Main Supplier`,
         phone: '+977-9811111111',
+        province: 'Bagmati Province',
+        district: 'Kathmandu',
         defaultPercent: new Prisma.Decimal(3),
         notes: 'Default stock supplier'
       }

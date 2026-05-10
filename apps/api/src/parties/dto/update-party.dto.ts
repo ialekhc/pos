@@ -24,6 +24,14 @@ export class UpdatePartyDto {
 
   @IsOptional()
   @IsString()
+  province?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  @IsString()
   taxId?: string;
 
   @IsOptional()

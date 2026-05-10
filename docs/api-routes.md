@@ -68,6 +68,7 @@
 - `GET /parties`
   - optional query: `type=VENDOR|CLIENT`, `search`, `includeInactive=true|false`
 - `POST /parties`
+  - supports fields: `province`, `district`, `address`, `defaultPercent`
 - `PATCH /parties/:partyId`
 - `DELETE /parties/:partyId`
 

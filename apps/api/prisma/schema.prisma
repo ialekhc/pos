@@ -434,6 +434,8 @@ model Party {
   phone          String?
   email          String?
   address        String?
+  province       String?
+  district       String?
   taxId          String?
   defaultPercent Decimal      @default(0) @db.Decimal(5, 2)
   notes          String?
@@ -448,6 +450,7 @@ model Party {
 
   @@unique([tenantId, type, name])
   @@index([tenantId, type, isActive])
+  @@index([tenantId, province, district])
 }
 
 model SaleItem {
