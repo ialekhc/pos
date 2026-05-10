@@ -17,6 +17,14 @@ export type PrintBillOptions = {
   ioLabel?: 'OUT' | 'IN' | 'ESTIMATE';
 };
 
+const TIMEZONE_ALIAS_MAP: Record<string, string> = {
+  'KATHMANDU/NEPAL': 'Asia/Kathmandu',
+  'NEPAL/KATHMANDU': 'Asia/Kathmandu',
+  'ASIA/KATMANDU': 'Asia/Kathmandu',
+  'GMT+5:45': 'Asia/Kathmandu',
+  'UTC+5:45': 'Asia/Kathmandu'
+};
+
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
@@ -59,6 +67,38 @@ function itemCategoryName(item: PosSaleItem) {
 
 function itemHsCode(item: PosSaleItem) {
   return item.hsCode ?? item.product?.hsCode ?? null;
+}
+
+function isValidTimeZone(value: string) {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveReceiptTimeZone(timeZone?: string | null) {
+  const trimmed = timeZone?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const alias = TIMEZONE_ALIAS_MAP[trimmed.toUpperCase()];
+  if (alias && isValidTimeZone(alias)) {
+    return alias;
+  }
+
+  if (isValidTimeZone(trimmed)) {
+    return trimmed;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  if ((lowered.includes('kathmandu') || lowered.includes('nepal')) && isValidTimeZone('Asia/Kathmandu')) {
+    return 'Asia/Kathmandu';
+  }
+
+  return undefined;
 }
 
 function buildReceiptHtml({
@@ -354,9 +394,11 @@ export async function printSaleReceipt(
     )
     .join('');
 
-  const completedAt = new Date(sale.completedAt).toLocaleString(undefined, {
-    timeZone: context.timezone || undefined
-  });
+  const resolvedTimeZone = resolveReceiptTimeZone(context.timezone);
+  const completedAt = new Date(sale.completedAt).toLocaleString(
+    undefined,
+    resolvedTimeZone ? { timeZone: resolvedTimeZone } : undefined
+  );
 
   const titlePrefix = billType === 'ESTIMATION' ? 'Estimation Bill' : 'Main Bill';
   const html = buildReceiptHtml({
