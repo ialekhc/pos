@@ -14,6 +14,7 @@ export type ReceiptPrintContext = {
   contactEmail?: string | null;
   contactAddress?: string | null;
   headerNote?: string | null;
+  panVatNumber?: string | null;
 };
 
 export type PrintBillOptions = {
@@ -207,6 +208,7 @@ function buildReceiptHtml({
           <p><strong>Party Amount:</strong> ${toMoney(partyAmount, context.currency)}</p>
           <p><strong>Cashier:</strong> ${escapeHtml(context.cashierName || '-')}</p>
           <p><strong>VAT Mode:</strong> ${escapeHtml(vatModeLabel)}</p>
+          <p><strong>Vendor PAN / VAT No:</strong> ${escapeHtml(context.panVatNumber || '-')}</p>
           <p><strong>Contact Phone:</strong> ${escapeHtml(context.contactPhone || '-')}</p>
           <p><strong>Contact Email:</strong> ${escapeHtml(context.contactEmail || '-')}</p>
           <p><strong>Contact Address:</strong> ${escapeHtml(context.contactAddress || '-')}</p>

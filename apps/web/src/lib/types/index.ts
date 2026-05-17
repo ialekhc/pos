@@ -134,6 +134,7 @@ export type ReceiptConfig = {
   contactEmail?: string;
   contactAddress?: string;
   headerNote?: string;
+  panVatNumber?: string;
 };
 
 export type PosSettings = {

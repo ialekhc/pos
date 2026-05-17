@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,9 @@ import { apiRequest } from '@/lib/api/client';
 import { resolveCurrencyCode } from '@/lib/utils/currency';
 
 const FIXED_VAT_PERCENT = 13;
+const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+const MAX_LOGO_DIMENSION = 420;
+const LOGO_MIME_TYPE_FALLBACK = 'image/png';
 
 type SettingsForm = {
   businessName: string;
@@ -21,6 +24,7 @@ type SettingsForm = {
   contactEmail: string;
   contactAddress: string;
   headerNote: string;
+  panVatNumber: string;
 };
 
 type SettingsResponse = {
@@ -58,6 +62,63 @@ function parseRequestError(error: unknown) {
   }
 }
 
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(new Error('Unable to read selected file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Selected file is not a valid image.'));
+    image.src = dataUrl;
+  });
+}
+
+async function optimizeLogoFile(file: File) {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please select a valid image file.');
+  }
+
+  if (file.size > MAX_LOGO_FILE_SIZE_BYTES) {
+    throw new Error('Please upload a logo image under 2 MB.');
+  }
+
+  const originalDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(originalDataUrl);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+
+  if (!width || !height) {
+    return originalDataUrl;
+  }
+
+  const scale = Math.min(1, MAX_LOGO_DIMENSION / Math.max(width, height));
+  if (scale >= 1) {
+    return originalDataUrl;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    return originalDataUrl;
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const outputType = file.type === 'image/png' ? 'image/png' : file.type || LOGO_MIME_TYPE_FALLBACK;
+  const optimizedDataUrl = canvas.toDataURL(outputType, 0.9);
+  return optimizedDataUrl.length < originalDataUrl.length ? optimizedDataUrl : originalDataUrl;
+}
+
 export default function SettingsPage() {
   const [form, setForm] = useState<SettingsForm>({
     businessName: '',
@@ -69,10 +130,12 @@ export default function SettingsPage() {
     contactPhone: '',
     contactEmail: '',
     contactAddress: '',
-    headerNote: ''
+    headerNote: '',
+    panVatNumber: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,7 +160,8 @@ export default function SettingsPage() {
           contactPhone: readConfigString(receiptConfig, 'contactPhone'),
           contactEmail: readConfigString(receiptConfig, 'contactEmail'),
           contactAddress: readConfigString(receiptConfig, 'contactAddress'),
-          headerNote: readConfigString(receiptConfig, 'headerNote')
+          headerNote: readConfigString(receiptConfig, 'headerNote'),
+          panVatNumber: readConfigString(receiptConfig, 'panVatNumber')
         });
       })
       .catch((requestError) => {
@@ -129,7 +193,8 @@ export default function SettingsPage() {
             contactPhone: form.contactPhone.trim(),
             contactEmail: form.contactEmail.trim(),
             contactAddress: form.contactAddress.trim(),
-            headerNote: form.headerNote.trim()
+            headerNote: form.headerNote.trim(),
+            panVatNumber: form.panVatNumber.trim()
           }
         })
       });
@@ -139,6 +204,29 @@ export default function SettingsPage() {
       setError(parseRequestError(requestError));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingLogo(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const dataUrl = await optimizeLogoFile(file);
+      setForm((state) => ({ ...state, logoUrl: dataUrl }));
+      setMessage('Logo uploaded. Save settings to apply this logo in bills.');
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Failed to process logo file.');
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -222,14 +310,50 @@ export default function SettingsPage() {
             <CardDescription>Customize how your printed bills look for customers.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Logo URL</label>
-              <Input
-                placeholder="https://example.com/logo.png"
-                value={form.logoUrl}
-                onChange={(event) => setForm((state) => ({ ...state, logoUrl: event.target.value }))}
-              />
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Logo URL (Optional)</label>
+                <Input
+                  placeholder="https://example.com/logo.png"
+                  value={form.logoUrl}
+                  onChange={(event) => setForm((state) => ({ ...state, logoUrl: event.target.value }))}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  You can paste a logo URL or upload a local image.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Upload Logo</label>
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                  onChange={onLogoUpload}
+                  disabled={uploadingLogo}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Max 2 MB. We auto-resize larger logos for clean bill printing.
+                </p>
+              </div>
             </div>
+            {form.logoUrl ? (
+              <div className="flex items-center gap-3 rounded-md border bg-muted/20 p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.logoUrl}
+                  alt="Receipt logo preview"
+                  className="h-14 w-14 rounded-md border bg-white object-contain p-1"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-foreground">Logo Preview</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {form.logoUrl.startsWith('data:image/') ? 'Uploaded image' : form.logoUrl}
+                  </p>
+                </div>
+                <Button type="button" variant="outline" onClick={() => setForm((state) => ({ ...state, logoUrl: '' }))}>
+                  Clear Logo
+                </Button>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Header Note</label>
               <Input
@@ -259,6 +383,16 @@ export default function SettingsPage() {
                   }
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Vendor PAN / VAT Number</label>
+                <Input
+                  placeholder="PAN/VAT No."
+                  value={form.panVatNumber}
+                  onChange={(event) =>
+                    setForm((state) => ({ ...state, panVatNumber: event.target.value }))
+                  }
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Contact Address</label>
@@ -285,7 +419,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Button disabled={saving}>{saving ? 'Saving...' : 'Save Settings'}</Button>
+        <Button disabled={saving || uploadingLogo}>
+          {saving ? 'Saving...' : uploadingLogo ? 'Processing Logo...' : 'Save Settings'}
+        </Button>
       </form>
     </div>
   );

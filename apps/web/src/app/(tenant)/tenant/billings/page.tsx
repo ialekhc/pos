@@ -39,7 +39,7 @@ function normalizeSale(sale: PosSale): PosSale {
 
 function readReceiptConfigValue(
   config: PosSettings['receiptConfig'] | undefined | null,
-  key: 'contactPhone' | 'contactEmail' | 'contactAddress' | 'headerNote'
+  key: 'contactPhone' | 'contactEmail' | 'contactAddress' | 'headerNote' | 'panVatNumber'
 ) {
   const value = config?.[key];
   return typeof value === 'string' ? value : undefined;
@@ -62,6 +62,7 @@ export default function BillingsPage() {
       contactEmail: readReceiptConfigValue(settings?.receiptConfig, 'contactEmail'),
       contactAddress: readReceiptConfigValue(settings?.receiptConfig, 'contactAddress'),
       headerNote: readReceiptConfigValue(settings?.receiptConfig, 'headerNote'),
+      panVatNumber: readReceiptConfigValue(settings?.receiptConfig, 'panVatNumber'),
       timezone: settings?.timezone || undefined,
       cashierName: `${sessionUser?.firstName ?? ''} ${sessionUser?.lastName ?? ''}`.trim() || undefined
     }),
