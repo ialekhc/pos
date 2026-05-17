@@ -15,10 +15,14 @@ export class ReportsService {
     const tenantId = this.getTenantId(actor);
     const { from, to } = this.getRange(query);
 
-    const [summary, paymentBreakdown] = await Promise.all([
-      this.reportsRepository.getSalesSummary(tenantId, from, to),
-      this.reportsRepository.paymentWise(tenantId, from, to)
-    ]);
+    const summary = await this.reportsRepository.getSalesSummary(tenantId, from, to);
+    let paymentBreakdown: Awaited<ReturnType<ReportsRepository['paymentWise']>> = [];
+
+    try {
+      paymentBreakdown = await this.reportsRepository.paymentWise(tenantId, from, to);
+    } catch {
+      paymentBreakdown = [];
+    }
 
     return {
       range: { from, to },
@@ -72,7 +76,7 @@ export class ReportsService {
 
   private getTenantId(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return actor.tenantId;

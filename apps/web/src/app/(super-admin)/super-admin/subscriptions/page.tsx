@@ -115,7 +115,7 @@ export default function SuperAdminSubscriptionsPage() {
   const assignSubscription = async (event: FormEvent) => {
     event.preventDefault();
     if (!selectedTenantId) {
-      setError('Select a tenant first.');
+      setError('Select a vendor first.');
       return;
     }
 
@@ -160,19 +160,19 @@ export default function SuperAdminSubscriptionsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Assign Subscription</CardTitle>
-          <CardDescription>Issue or change a tenant subscription. Active or trial subscriptions are rotated automatically.</CardDescription>
+          <CardDescription>Issue or change a vendor subscription. Active or trial subscriptions are rotated automatically.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={assignSubscription}>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Tenant</label>
+              <label className="text-xs font-medium text-muted-foreground">Vendor</label>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={selectedTenantId}
                 onChange={(event) => setSelectedTenantId(event.target.value)}
                 required
               >
-                <option value="">Select tenant</option>
+                <option value="">Select vendor</option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.name} ({tenant.slug})
@@ -236,13 +236,13 @@ export default function SuperAdminSubscriptionsPage() {
         <CardContent className="space-y-3">
           <div className="max-w-sm">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Tenant Filter</label>
+              <label className="text-xs font-medium text-muted-foreground">Vendor Filter</label>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={filterTenantId}
                 onChange={(event) => setFilterTenantId(event.target.value)}
               >
-                <option value="all">All tenants</option>
+                <option value="all">All vendors</option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.name} ({tenant.slug})
@@ -253,7 +253,7 @@ export default function SuperAdminSubscriptionsPage() {
           </div>
 
           <DataTable
-            headers={['Tenant', 'Plan', 'Status', 'Start', 'End', 'Auto Renew']}
+            headers={['Vendor', 'Plan', 'Status', 'Start', 'End', 'Auto Renew']}
             rows={subscriptions.map((subscription) => [
               `${subscription.tenant.name} (${subscription.tenant.slug})`,
               `${subscription.plan.name} (${subscription.plan.code})`,

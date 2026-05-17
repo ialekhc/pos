@@ -585,7 +585,7 @@ export default function ProductsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Price</label>
+              <label className="text-xs font-medium text-muted-foreground">Sales Price</label>
               <Input
                 type="number"
                 min={0}
@@ -596,7 +596,7 @@ export default function ProductsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
+              <label className="text-xs font-medium text-muted-foreground">Cost Price (Purchase Cost)</label>
               <Input
                 type="number"
                 min={0}
@@ -691,7 +691,7 @@ export default function ProductsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Price</label>
+              <label className="text-xs font-medium text-muted-foreground">Sales Price</label>
                 <Input
                   type="number"
                   min={0}
@@ -704,7 +704,7 @@ export default function ProductsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Cost Price</label>
+              <label className="text-xs font-medium text-muted-foreground">Cost Price (Purchase Cost)</label>
                 <Input
                   type="number"
                   min={0}
@@ -760,7 +760,17 @@ export default function ProductsPage() {
         </CardHeader>
         <CardContent>
           <DataTable
-            headers={['Name', 'SKU', 'Category', 'HS Code', 'Price', 'Stock', 'Threshold', 'Status', 'Actions']}
+            headers={[
+              'Name',
+              'SKU',
+              'Category',
+              'HS Code',
+              'Sales Price',
+              'Stock',
+              'Threshold',
+              'Status',
+              'Actions'
+            ]}
             rows={products.map((product) => [
               product.name,
               product.sku,

@@ -9,6 +9,10 @@ import { DataTable } from '@/components/layout/data-table';
 import { MetricCard } from '@/components/layout/metric-card';
 import { apiRequest } from '@/lib/api/client';
 
+function toVendorTerm(value: string) {
+  return value.replaceAll('Tenant', 'Vendor').replaceAll('tenant', 'vendor');
+}
+
 type TenantOption = {
   id: string;
   name: string;
@@ -128,7 +132,7 @@ export default function SuperAdminUsersPage() {
 
   useEffect(() => {
     loadTenants().catch((requestError) =>
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load tenants')
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load vendors')
     );
   }, []);
 
@@ -218,18 +222,18 @@ export default function SuperAdminUsersPage() {
       <Card>
         <CardHeader>
           <CardTitle>User Provisioning</CardTitle>
-          <CardDescription>Create platform users or tenant staff with role-based access.</CardDescription>
+          <CardDescription>Create platform users or vendor staff with role-based access.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tenant Scope</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vendor Scope</p>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={selectedTenantId}
                 onChange={(event) => setSelectedTenantId(event.target.value)}
               >
-                <option value="all">All tenants (global view)</option>
+                <option value="all">All vendors (global view)</option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.name} ({tenant.slug})
@@ -262,7 +266,7 @@ export default function SuperAdminUsersPage() {
               <label className="text-xs font-medium text-muted-foreground">Email</label>
               <Input
                 type="email"
-                placeholder="admin@tenant.local"
+                placeholder="admin@vendor.local"
                 value={form.email}
                 onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
                 required
@@ -286,7 +290,7 @@ export default function SuperAdminUsersPage() {
               >
                 {roleOptions.map((role) => (
                   <option key={role.id} value={role.code}>
-                    {role.name} ({role.code})
+                    {toVendorTerm(role.name)} ({role.code})
                   </option>
                 ))}
               </select>
@@ -305,17 +309,17 @@ export default function SuperAdminUsersPage() {
           <div className="max-w-sm space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Search Users</label>
             <Input
-              placeholder="Name, email, role, or tenant"
+              placeholder="Name, email, role, or vendor"
               value={userSearch}
               onChange={(event) => setUserSearch(event.target.value)}
             />
           </div>
           <DataTable
-            headers={['Name', 'Email', 'Role', 'Tenant', 'Status', 'Actions']}
+            headers={['Name', 'Email', 'Role', 'Vendor', 'Status', 'Actions']}
             rows={filteredUsers.map((user) => [
               `${user.firstName} ${user.lastName}`,
               user.email,
-              user.role.name,
+              toVendorTerm(user.role.name),
               user.tenant ? `${user.tenant.name} (${user.tenant.slug})` : 'Platform',
               <Badge key={`${user.id}-status`} variant={user.isActive ? 'default' : 'secondary'}>
                 {user.isActive ? 'Active' : 'Inactive'}

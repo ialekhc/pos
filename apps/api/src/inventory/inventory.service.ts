@@ -17,7 +17,7 @@ export class InventoryService {
 
   listLogs(actor: ActiveUser, query: ListInventoryLogsQueryDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
@@ -47,7 +47,7 @@ export class InventoryService {
 
   summary(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.inventoryRepository.getSummary(actor.tenantId);
@@ -55,7 +55,7 @@ export class InventoryService {
 
   async adjustStock(actor: ActiveUser, dto: StockAdjustmentDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const product = await this.inventoryRepository.findProductById(dto.productId);
@@ -65,7 +65,7 @@ export class InventoryService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && product.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant stock modification denied.');
+      throw new ForbiddenException('Cross-vendor stock modification denied.');
     }
 
     if (dto.action === 'ADJUSTMENT' && dto.quantity < 0) {

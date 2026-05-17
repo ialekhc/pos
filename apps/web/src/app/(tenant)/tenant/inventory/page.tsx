@@ -72,6 +72,7 @@ type InventorySummary = {
 };
 
 type AdjustmentAction = 'STOCK_IN' | 'STOCK_OUT' | 'ADJUSTMENT';
+type TransactionFlow = 'PURCHASE_IN' | 'PURCHASE_REFUND' | 'SALES_RETURN' | 'MANUAL';
 type StockView = 'ALL' | 'LOW' | 'OUT' | 'HEALTHY';
 
 type LogFilters = {
@@ -98,6 +99,19 @@ const ACTION_LABELS: Record<InventoryLog['action'], string> = {
   ADJUSTMENT: 'Set Exact Qty',
   SALE: 'Sale Deduction',
   REFUND: 'Refund Return'
+};
+
+const FLOW_TO_ACTION: Record<Exclude<TransactionFlow, 'MANUAL'>, AdjustmentAction> = {
+  PURCHASE_IN: 'STOCK_IN',
+  PURCHASE_REFUND: 'STOCK_OUT',
+  SALES_RETURN: 'STOCK_IN'
+};
+
+const FLOW_LABELS: Record<TransactionFlow, string> = {
+  PURCHASE_IN: 'Purchase In',
+  PURCHASE_REFUND: 'Purchase Refund',
+  SALES_RETURN: 'Sales Return',
+  MANUAL: 'Manual Adjustment'
 };
 
 function parseRequestError(error: unknown) {
@@ -142,6 +156,7 @@ function getActionBadgeVariant(action: InventoryLog['action']) {
 
 export default function InventoryPage() {
   const [vendors, setVendors] = useState<Party[]>([]);
+  const [clients, setClients] = useState<Party[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [logs, setLogs] = useState<InventoryLog[]>([]);
@@ -151,6 +166,7 @@ export default function InventoryPage() {
   const [stockView, setStockView] = useState<StockView>('ALL');
   const [form, setForm] = useState<{
     productId: string;
+    flow: TransactionFlow;
     action: AdjustmentAction;
     quantity: number;
     reason: string;
@@ -158,6 +174,7 @@ export default function InventoryPage() {
     partyPercent: number;
   }>({
     productId: '',
+    flow: 'PURCHASE_IN',
     action: 'STOCK_IN',
     quantity: 1,
     reason: '',
@@ -174,6 +191,17 @@ export default function InventoryPage() {
     () => products.find((product) => product.id === form.productId) ?? null,
     [form.productId, products]
   );
+
+  const resolvedAction = useMemo<AdjustmentAction>(() => {
+    if (form.flow === 'MANUAL') {
+      return form.action;
+    }
+
+    return FLOW_TO_ACTION[form.flow];
+  }, [form.action, form.flow]);
+
+  const linkedPartyType = form.flow === 'SALES_RETURN' ? 'CLIENT' : 'VENDOR';
+  const partyOptions = linkedPartyType === 'CLIENT' ? clients : vendors;
 
   const filteredStockRows = useMemo(() => {
     const query = stockSearch.trim().toLowerCase();
@@ -314,10 +342,14 @@ export default function InventoryPage() {
     return summaryPayload;
   };
 
-  const loadVendors = async () => {
-    const rows = await apiRequest<Party[]>('/parties?type=VENDOR');
-    setVendors(rows);
-    return rows;
+  const loadParties = async () => {
+    const [vendorRows, clientRows] = await Promise.all([
+      apiRequest<Party[]>('/parties?type=VENDOR'),
+      apiRequest<Party[]>('/parties?type=CLIENT')
+    ]);
+    setVendors(vendorRows);
+    setClients(clientRows);
+    return { vendorRows, clientRows };
   };
 
   const loadLogs = async (nextFilters: LogFilters) => {
@@ -335,7 +367,7 @@ export default function InventoryPage() {
     setIsLoading(true);
     setError(null);
     try {
-      await Promise.all([loadProducts(), loadLowStock(), loadSummary(), loadLogs(filters), loadVendors()]);
+      await Promise.all([loadProducts(), loadLowStock(), loadSummary(), loadLogs(filters), loadParties()]);
     } catch (requestError) {
       setError(parseRequestError(requestError));
     } finally {
@@ -354,15 +386,29 @@ export default function InventoryPage() {
       return;
     }
 
-    if (form.action !== 'ADJUSTMENT' && form.quantity < 1) {
+    if (resolvedAction !== 'ADJUSTMENT' && form.quantity < 1) {
       setError('Quantity must be at least 1 for stock in/out.');
       return;
     }
 
-    if (form.action === 'ADJUSTMENT' && form.quantity < 0) {
+    if (resolvedAction === 'ADJUSTMENT' && form.quantity < 0) {
       setError('Target quantity cannot be negative.');
       return;
     }
+
+    const reasonPrefixByFlow: Record<Exclude<TransactionFlow, 'MANUAL'>, string> = {
+      PURCHASE_IN: 'Purchase In',
+      PURCHASE_REFUND: 'Purchase Refund',
+      SALES_RETURN: 'Sales Return'
+    };
+
+    const trimmedReason = form.reason.trim();
+    const composedReason =
+      form.flow === 'MANUAL'
+        ? trimmedReason || undefined
+        : trimmedReason
+          ? `${reasonPrefixByFlow[form.flow]}: ${trimmedReason}`
+          : reasonPrefixByFlow[form.flow];
 
     setIsSubmitting(true);
     setError(null);
@@ -372,18 +418,18 @@ export default function InventoryPage() {
         method: 'POST',
         body: JSON.stringify({
           productId: form.productId,
-          action: form.action,
+          action: resolvedAction,
           quantity: form.quantity,
-          reason: form.reason.trim() || undefined,
+          reason: composedReason,
           partyId: form.partyId || undefined,
           partyPercent: form.partyId ? form.partyPercent : undefined
         })
       });
 
-      setNotice('Inventory adjustment recorded successfully.');
+      setNotice(`${FLOW_LABELS[form.flow]} recorded successfully.`);
       setForm((state) => ({
         ...state,
-        quantity: state.action === 'ADJUSTMENT' ? 0 : 1,
+        quantity: resolvedAction === 'ADJUSTMENT' ? 0 : 1,
         reason: ''
       }));
       await loadInventoryWorkspace();
@@ -422,6 +468,7 @@ export default function InventoryPage() {
     const recommendedQty = Math.max(product.lowStockThreshold - product.stockQuantity + 5, 1);
     setForm({
       productId: product.id,
+      flow: 'PURCHASE_IN',
       action: 'STOCK_IN',
       quantity: recommendedQty,
       reason: 'Restock against low-stock alert',
@@ -459,7 +506,7 @@ export default function InventoryPage() {
         <CardHeader>
           <CardTitle>Stock Adjustment</CardTitle>
           <CardDescription>
-            Record stock in, stock out, or set exact on-hand quantity with a clear audit trail.
+            Record purchase in, purchase refund, sales return, or manual stock adjustments with full audit history.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -481,30 +528,67 @@ export default function InventoryPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Adjustment Type</label>
+              <label className="text-xs font-medium text-muted-foreground">Transaction Flow</label>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.action}
+                value={form.flow}
                 onChange={(event) =>
                   setForm((state) => ({
                     ...state,
-                    action: event.target.value as AdjustmentAction
+                    flow: event.target.value as TransactionFlow,
+                    action: event.target.value === 'MANUAL' ? state.action : 'STOCK_IN',
+                    quantity: event.target.value === 'MANUAL' ? state.quantity : Math.max(state.quantity, 1),
+                    partyId: '',
+                    partyPercent: 0
                   }))
                 }
               >
-                <option value="STOCK_IN">Stock In (Add)</option>
-                <option value="STOCK_OUT">Stock Out (Deduct)</option>
-                <option value="ADJUSTMENT">Set Exact Quantity</option>
+                <option value="PURCHASE_IN">Purchase In</option>
+                <option value="PURCHASE_REFUND">Purchase Refund</option>
+                <option value="SALES_RETURN">Sales Return</option>
+                <option value="MANUAL">Manual Adjustment</option>
               </select>
             </div>
 
+            {form.flow === 'MANUAL' ? (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Adjustment Type</label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={form.action}
+                  onChange={(event) =>
+                    setForm((state) => ({
+                      ...state,
+                      action: event.target.value as AdjustmentAction
+                    }))
+                  }
+                >
+                  <option value="STOCK_IN">Stock In (Add)</option>
+                  <option value="STOCK_OUT">Stock Out (Deduct)</option>
+                  <option value="ADJUSTMENT">Set Exact Quantity</option>
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Stock Movement</label>
+                <Input
+                  value={
+                    form.flow === 'PURCHASE_REFUND'
+                      ? 'Stock Out (Deduct from inventory)'
+                      : 'Stock In (Add to inventory)'
+                  }
+                  readOnly
+                />
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                {form.action === 'ADJUSTMENT' ? 'Target Quantity' : 'Quantity'}
+                {resolvedAction === 'ADJUSTMENT' ? 'Target Quantity' : 'Quantity'}
               </label>
               <Input
                 type="number"
-                min={form.action === 'ADJUSTMENT' ? 0 : 1}
+                min={resolvedAction === 'ADJUSTMENT' ? 0 : 1}
                 value={form.quantity}
                 onChange={(event) =>
                   setForm((state) => ({ ...state, quantity: Number(event.target.value || 0) }))
@@ -515,38 +599,48 @@ export default function InventoryPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Reason (Optional)</label>
               <Input
-                placeholder="Damaged, restock, manual correction..."
+                placeholder={
+                  form.flow === 'MANUAL'
+                    ? 'Damaged, correction, stock count mismatch...'
+                    : 'Optional note for this transaction'
+                }
                 value={form.reason}
                 onChange={(event) => setForm((state) => ({ ...state, reason: event.target.value }))}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Vendor (Optional)</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {linkedPartyType === 'CLIENT' ? 'Client (Optional)' : 'Vendor (Optional)'}
+              </label>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={form.partyId}
                 onChange={(event) => {
-                  const vendorId = event.target.value;
-                  const vendor = vendors.find((row) => row.id === vendorId);
+                  const partyId = event.target.value;
+                  const party = partyOptions.find((row) => row.id === partyId);
                   setForm((state) => ({
                     ...state,
-                    partyId: vendorId,
-                    partyPercent: vendor ? Number(vendor.defaultPercent || 0) : 0
+                    partyId,
+                    partyPercent: party ? Number(party.defaultPercent || 0) : 0
                   }));
                 }}
               >
-                <option value="">No vendor linked</option>
-                {vendors.map((vendor) => (
-                  <option key={vendor.id} value={vendor.id}>
-                    {vendor.name}
+                <option value="">
+                  {linkedPartyType === 'CLIENT' ? 'No client linked' : 'No vendor linked'}
+                </option>
+                {partyOptions.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Vendor Percent (%)</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {linkedPartyType === 'CLIENT' ? 'Client Percent (%)' : 'Vendor Percent (%)'}
+              </label>
               <Input
                 type="number"
                 min={0}
@@ -561,7 +655,7 @@ export default function InventoryPage() {
 
             <div className="md:col-span-2 xl:col-span-4 flex flex-wrap gap-2">
               <Button disabled={isSubmitting || !form.productId}>
-                {isSubmitting ? 'Applying...' : 'Apply Adjustment'}
+                {isSubmitting ? 'Applying...' : `Apply ${FLOW_LABELS[form.flow]}`}
               </Button>
               <Button
                 type="button"
@@ -569,6 +663,7 @@ export default function InventoryPage() {
                 onClick={() =>
                   setForm((state) => ({
                     ...state,
+                    flow: 'PURCHASE_IN',
                     action: 'STOCK_IN',
                     quantity: 1,
                     reason: '',
@@ -645,7 +740,7 @@ export default function InventoryPage() {
       <Card>
         <CardHeader>
           <CardTitle>Stock Levels</CardTitle>
-          <CardDescription>Organized stock snapshot across all tenant products.</CardDescription>
+          <CardDescription>Organized stock snapshot across all vendor products.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">

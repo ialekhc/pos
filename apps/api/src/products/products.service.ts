@@ -17,7 +17,7 @@ export class ProductsService {
 
   list(actor: ActiveUser, search?: string, categoryId?: string) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.productsRepository.findByTenant(actor.tenantId, search, categoryId);
@@ -25,7 +25,7 @@ export class ProductsService {
 
   getLowStock(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.productsRepository.findLowStock(actor.tenantId);
@@ -33,7 +33,7 @@ export class ProductsService {
 
   async create(actor: ActiveUser, dto: CreateProductDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const currentCount = await this.productsRepository.countActiveByTenant(actor.tenantId);
@@ -78,7 +78,7 @@ export class ProductsService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && product.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant product update denied.');
+      throw new ForbiddenException('Cross-vendor product update denied.');
     }
 
     if (dto.hasVariants) {
@@ -119,7 +119,7 @@ export class ProductsService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && product.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant product remove denied.');
+      throw new ForbiddenException('Cross-vendor product remove denied.');
     }
 
     await this.productsRepository.softDelete(productId);

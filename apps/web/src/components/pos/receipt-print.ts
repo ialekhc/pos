@@ -13,7 +13,6 @@ export type ReceiptPrintContext = {
 
 export type PrintBillOptions = {
   billType?: 'SALE' | 'ESTIMATION';
-  vatEnabled?: boolean;
   ioLabel?: 'OUT' | 'IN' | 'ESTIMATE';
 };
 
@@ -105,7 +104,6 @@ function buildReceiptHtml({
   sale,
   context,
   billType,
-  vatEnabled,
   titlePrefix,
   partyType,
   partyName,
@@ -119,7 +117,6 @@ function buildReceiptHtml({
   sale: PosSale;
   context: ReceiptPrintContext;
   billType: 'SALE' | 'ESTIMATION';
-  vatEnabled: boolean;
   titlePrefix: string;
   partyType: string;
   partyName: string;
@@ -137,84 +134,99 @@ function buildReceiptHtml({
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>${escapeHtml(titlePrefix)} ${escapeHtml(sale.saleNumber)}</title>
       <style>
-        body { font-family: Arial, sans-serif; padding: 20px; color: #111; line-height: 1.35; }
-        h1 { margin: 0; font-size: 24px; }
-        h2 { margin: 2px 0 14px; font-size: 14px; color: #555; font-weight: normal; }
-        .meta { margin-bottom: 14px; font-size: 12px; color: #444; }
-        .meta p { margin: 2px 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 20px; background: #f4f6fb; color: #111827; line-height: 1.4; font-family: "Segoe UI", Arial, sans-serif; }
+        .sheet { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 22px; }
+        .header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 14px; }
+        h1 { margin: 0; font-size: 24px; line-height: 1.2; }
+        .sub { margin-top: 4px; font-size: 13px; color: #6b7280; }
+        .bill-tag { border: 1px solid #d1d5db; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .04em; }
+        .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-bottom: 16px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; font-size: 12px; color: #374151; }
+        .meta p { margin: 0; }
+        .meta strong { color: #111827; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; vertical-align: top; }
-        th { background: #fafafa; }
-        .totals { margin-top: 12px; width: 340px; margin-left: auto; border-collapse: collapse; }
-        .totals td { border: none; padding: 4px 0; font-size: 13px; }
-        .totals tr:last-child td { font-size: 16px; font-weight: bold; padding-top: 8px; }
-        .footer { margin-top: 22px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 12px; color: #555; white-space: pre-wrap; }
-        .label { display: inline-block; padding: 4px 8px; border-radius: 999px; border: 1px solid #ddd; font-size: 11px; margin-top: 6px; }
-        .without-vat { background: #fef3c7; border-color: #fcd34d; }
+        th, td { border: 1px solid #e5e7eb; padding: 9px; text-align: left; font-size: 12px; vertical-align: top; }
+        th { background: #f3f4f6; color: #111827; font-weight: 600; }
+        tbody tr:nth-child(even) { background: #fcfcfd; }
+        .totals-wrap { margin-top: 12px; display: flex; justify-content: flex-end; }
+        .totals { width: 360px; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+        .totals td { border: none; border-bottom: 1px solid #f1f5f9; padding: 8px 10px; font-size: 12px; }
+        .totals tr:last-child td { border-bottom: none; font-size: 15px; font-weight: 700; background: #eff6ff; }
+        .totals td:last-child { text-align: right; font-weight: 600; }
+        h3 { margin-top: 20px; margin-bottom: 8px; font-size: 14px; }
+        .footer { margin-top: 22px; border-top: 1px dashed #d1d5db; padding-top: 10px; font-size: 12px; color: #4b5563; white-space: pre-wrap; }
       </style>
     </head>
     <body>
-      <h1>${escapeHtml(context.businessName || 'POS Bill')}</h1>
-      <h2>${escapeHtml(titlePrefix)} ${escapeHtml(sale.saleNumber)}</h2>
-      ${!vatEnabled ? '<div class="label without-vat">WITHOUT VAT BILL</div>' : ''}
+      <div class="sheet">
+        <div class="header">
+          <div>
+            <h1>${escapeHtml(context.businessName || 'POS Bill')}</h1>
+            <div class="sub">${escapeHtml(titlePrefix)} ${escapeHtml(sale.saleNumber)}</div>
+          </div>
+          <div class="bill-tag">${escapeHtml(billType === 'ESTIMATION' ? 'Estimation' : 'Tax Invoice')}</div>
+        </div>
 
-      <div class="meta">
-        <p><strong>Completed:</strong> ${escapeHtml(completedAt)}</p>
-        <p><strong>Status:</strong> ${escapeHtml(sale.status)}</p>
-        <p><strong>Party Type:</strong> ${escapeHtml(partyType)}</p>
-        <p><strong>Party:</strong> ${escapeHtml(partyName)}</p>
-        <p><strong>Party Phone:</strong> ${escapeHtml(partyPhone)}</p>
-        <p><strong>Party %:</strong> ${escapeHtml(partyPercent.toFixed(2))}%</p>
-        <p><strong>Party Amount:</strong> ${toMoney(partyAmount, context.currency)}</p>
-        <p><strong>Cashier:</strong> ${escapeHtml(context.cashierName || '-')}</p>
-        <p><strong>VAT Mode:</strong> ${vatEnabled ? 'With VAT' : 'Without VAT'}</p>
-        <p><strong>Note:</strong> ${escapeHtml(sale.notes || '-')}</p>
+        <div class="meta">
+          <p><strong>Completed:</strong> ${escapeHtml(completedAt)}</p>
+          <p><strong>Status:</strong> ${escapeHtml(sale.status)}</p>
+          <p><strong>Party Type:</strong> ${escapeHtml(partyType)}</p>
+          <p><strong>Party:</strong> ${escapeHtml(partyName)}</p>
+          <p><strong>Party Phone:</strong> ${escapeHtml(partyPhone)}</p>
+          <p><strong>Party %:</strong> ${escapeHtml(partyPercent.toFixed(2))}%</p>
+          <p><strong>Party Amount:</strong> ${toMoney(partyAmount, context.currency)}</p>
+          <p><strong>Cashier:</strong> ${escapeHtml(context.cashierName || '-')}</p>
+          <p><strong>VAT Rate:</strong> 13%</p>
+          <p><strong>Note:</strong> ${escapeHtml(sale.notes || '-')}</p>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+
+        <div class="totals-wrap">
+          <table class="totals">
+            <tbody>
+              <tr><td>Subtotal</td><td>${toMoney(sale.subtotal, context.currency)}</td></tr>
+              <tr><td>Total Discount</td><td>${toMoney(sale.discountAmount, context.currency)}</td></tr>
+              <tr><td>Party Discount Part</td><td>${toMoney(partyAmount, context.currency)}</td></tr>
+              <tr><td>VAT (13%)</td><td>${toMoney(sale.taxAmount, context.currency)}</td></tr>
+              <tr><td>Total</td><td>${toMoney(sale.totalAmount, context.currency)}</td></tr>
+              <tr><td>Paid</td><td>${toMoney(sale.paidAmount, context.currency)}</td></tr>
+              <tr><td>Change</td><td>${toMoney(sale.changeAmount, context.currency)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Payments / Settlement</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              paymentRows ||
+              `<tr><td colspan="3">${billType === 'ESTIMATION' ? 'Estimation only (no payment captured)' : 'No payments'}</td></tr>`
+            }
+          </tbody>
+        </table>
+
+        ${context.receiptFooter ? `<div class="footer">${escapeHtml(context.receiptFooter)}</div>` : ''}
       </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Qty</th>
-            <th>Unit Price</th>
-            <th>Line Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-
-      <table class="totals">
-        <tbody>
-          <tr><td>Subtotal</td><td>${toMoney(sale.subtotal, context.currency)}</td></tr>
-          <tr><td>Total Discount</td><td>${toMoney(sale.discountAmount, context.currency)}</td></tr>
-          <tr><td>Party Discount Part</td><td>${toMoney(partyAmount, context.currency)}</td></tr>
-          <tr><td>VAT</td><td>${toMoney(sale.taxAmount, context.currency)}</td></tr>
-          <tr><td>Total</td><td>${toMoney(sale.totalAmount, context.currency)}</td></tr>
-          <tr><td>Paid</td><td>${toMoney(sale.paidAmount, context.currency)}</td></tr>
-          <tr><td>Change</td><td>${toMoney(sale.changeAmount, context.currency)}</td></tr>
-        </tbody>
-      </table>
-
-      <h3 style="margin-top: 24px; margin-bottom: 8px;">Payments / Settlement</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Status</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            paymentRows ||
-            `<tr><td colspan="3">${billType === 'ESTIMATION' ? 'Estimation only (no payment captured)' : 'No payments'}</td></tr>`
-          }
-        </tbody>
-      </table>
-
-      ${context.receiptFooter ? `<div class="footer">${escapeHtml(context.receiptFooter)}</div>` : ''}
     </body>
   </html>`;
 }
@@ -347,8 +359,6 @@ export async function printSaleReceipt(
   }
 
   const billType = options?.billType ?? sale.billType ?? 'SALE';
-  const vatDisabledByNote = (sale.notes || '').includes('WITHOUT_VAT_BILL');
-  const vatEnabled = options?.vatEnabled ?? (!vatDisabledByNote && Number(sale.taxAmount || 0) > 0);
   const defaultIoLabel = billType === 'ESTIMATION' ? 'ESTIMATE' : 'OUT';
   const partyName = sale.partyName || sale.customerName || '-';
   const partyPhone = sale.partyPhone || sale.customerPhone || '-';
@@ -405,7 +415,6 @@ export async function printSaleReceipt(
     sale,
     context,
     billType,
-    vatEnabled,
     titlePrefix,
     partyType,
     partyName,

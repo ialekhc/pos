@@ -85,7 +85,7 @@ export default function LoginPage() {
       <CardHeader>
         <CardTitle>POS Cloud Login</CardTitle>
         <CardDescription>
-          Sign in with your super admin or tenant credentials to open your workspace.
+          Sign in with your super admin or vendor credentials to open your workspace.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -94,7 +94,7 @@ export default function LoginPage() {
             Use Super Admin
           </Button>
           <Button type="button" variant="outline" onClick={loadTenantDemo}>
-            Use Tenant Admin
+            Use Vendor Admin
           </Button>
         </div>
 
@@ -115,7 +115,7 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Tenant Slug (optional for super admin)</label>
+            <label className="text-sm font-medium">Vendor Slug (optional for super admin)</label>
             <Input
               type="text"
               value={tenantSlug}
@@ -144,7 +144,7 @@ export default function LoginPage() {
             Super Admin: <code>superadmin@platform.local</code> / <code>SuperSecure123!</code>
           </p>
           <p>
-            Tenant Admin: <code>admin@sunrise-mart.local</code> / <code>Password@123</code>
+            Vendor Admin: <code>admin@sunrise-mart.local</code> / <code>Password@123</code>
           </p>
         </div>
       </CardContent>

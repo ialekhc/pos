@@ -11,7 +11,7 @@ export class CategoriesService {
 
   list(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.categoriesRepository.findByTenant(actor.tenantId);
@@ -19,7 +19,7 @@ export class CategoriesService {
 
   async create(actor: ActiveUser, dto: CreateCategoryDto) {
     if (!actor.tenantId || actor.role === UserRoleCode.SUPER_ADMIN) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const parentId = dto.parentId?.trim();
@@ -48,7 +48,7 @@ export class CategoriesService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && category.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cannot update category outside tenant scope.');
+      throw new ForbiddenException('Cannot update category outside vendor scope.');
     }
 
     if (dto.parentId !== undefined) {
@@ -81,7 +81,7 @@ export class CategoriesService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && category.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cannot remove category outside tenant scope.');
+      throw new ForbiddenException('Cannot remove category outside vendor scope.');
     }
 
     await this.categoriesRepository.softDelete(categoryId);

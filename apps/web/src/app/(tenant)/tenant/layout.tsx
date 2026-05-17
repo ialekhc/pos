@@ -32,7 +32,7 @@ export default function TenantLayout({ children }: { children: React.ReactNode }
   return (
     <RoleGate allowed={['TENANT_ADMIN', 'MANAGER', 'CASHIER']}>
       <AppShell
-        title="Tenant Workspace"
+        title="Vendor Workspace"
         subtitle="Store operations, POS, inventory, staff, and analytics"
         navItems={navItems}
       >

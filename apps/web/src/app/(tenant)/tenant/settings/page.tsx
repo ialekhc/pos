@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiRequest } from '@/lib/api/client';
 import { resolveCurrencyCode } from '@/lib/utils/currency';
 
+const FIXED_VAT_PERCENT = 13;
+
 type SettingsForm = {
   businessName: string;
   taxRate: number;
@@ -39,7 +41,7 @@ function parseRequestError(error: unknown) {
 export default function SettingsPage() {
   const [form, setForm] = useState<SettingsForm>({
     businessName: '',
-    taxRate: 5,
+    taxRate: FIXED_VAT_PERCENT,
     currency: 'NPR',
     timezone: 'UTC',
     receiptFooter: 'Thank you for shopping with us!'
@@ -59,7 +61,7 @@ export default function SettingsPage() {
 
         setForm({
           businessName: data.businessName ?? '',
-          taxRate: Number(data.taxRate ?? 0),
+          taxRate: FIXED_VAT_PERCENT,
           currency: resolveCurrencyCode(data.currency),
           timezone: data.timezone ?? 'UTC',
           receiptFooter: data.receiptFooter ?? ''
@@ -84,6 +86,7 @@ export default function SettingsPage() {
         method: 'PATCH',
         body: JSON.stringify({
           ...form,
+          taxRate: FIXED_VAT_PERCENT,
           currency: form.currency.trim().toUpperCase(),
           timezone: form.timezone.trim(),
           businessName: form.businessName.trim(),
@@ -136,17 +139,17 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Tax Rate (%)</label>
+              <label className="text-xs font-medium text-muted-foreground">VAT Rate (%)</label>
               <Input
                 type="number"
                 min={0}
                 max={100}
                 step="0.01"
                 value={form.taxRate || ''}
-                onChange={(event) =>
-                  setForm((state) => ({ ...state, taxRate: Number(event.target.value || 0) }))
-                }
+                readOnly
+                disabled
               />
+              <p className="text-[11px] text-muted-foreground">VAT is fixed at 13% for all invoices.</p>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Currency Code</label>

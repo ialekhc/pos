@@ -113,7 +113,7 @@ export function useOfflineCart() {
     () => state.currentCart.reduce((sum, line) => sum + line.price * line.quantity, 0),
     [state.currentCart]
   );
-  const tax = useMemo(() => subtotal * 0.05, [subtotal]);
+  const tax = useMemo(() => subtotal * 0.13, [subtotal]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
 
   return {

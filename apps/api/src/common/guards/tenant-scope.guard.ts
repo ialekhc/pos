@@ -35,7 +35,7 @@ export class TenantScopeGuard implements CanActivate {
       request.body?.tenantId;
 
     if (tenantIdFromRequest && tenantIdFromRequest !== user.tenantId) {
-      throw new ForbiddenException('Cross-tenant access denied.');
+      throw new ForbiddenException('Cross-vendor access denied.');
     }
 
     request.tenantId = user.tenantId;

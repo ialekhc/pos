@@ -35,19 +35,47 @@ export default function TenantDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [realtimeHint, setRealtimeHint] = useState<string | null>(null);
 
+  const extractErrorMessage = (requestError: unknown) => {
+    if (!(requestError instanceof Error)) {
+      return 'Request failed';
+    }
+
+    try {
+      const parsed = JSON.parse(requestError.message) as { message?: string | string[] };
+      if (Array.isArray(parsed.message)) {
+        return parsed.message.join(', ');
+      }
+      if (typeof parsed.message === 'string') {
+        return parsed.message;
+      }
+    } catch {
+      // No-op: keep original message when JSON parse fails.
+    }
+
+    return requestError.message || 'Request failed';
+  };
+
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       apiRequest<DashboardData>('/reports/summary?period=DAILY'),
-      apiRequest<Product[]>('/products/low-stock'),
-      apiRequest('/sales')
-    ])
-      .then(([dailySummary, lowStockItems]) => {
-        setSummary(dailySummary);
-        setLowStock(lowStockItems);
-      })
-      .catch((requestError) => {
-        setError(requestError instanceof Error ? requestError.message : 'Failed to load dashboard');
-      });
+      apiRequest<Product[]>('/products/low-stock')
+    ]).then(([summaryResult, lowStockResult]) => {
+      const endpointErrors: string[] = [];
+
+      if (summaryResult.status === 'fulfilled') {
+        setSummary(summaryResult.value);
+      } else {
+        endpointErrors.push(`Summary: ${extractErrorMessage(summaryResult.reason)}`);
+      }
+
+      if (lowStockResult.status === 'fulfilled') {
+        setLowStock(lowStockResult.value);
+      } else {
+        endpointErrors.push(`Low Stock: ${extractErrorMessage(lowStockResult.reason)}`);
+      }
+
+      setError(endpointErrors.length ? endpointErrors.join(' | ') : null);
+    });
   }, []);
 
   const handleDashboardMetrics = useCallback(() => {

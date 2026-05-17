@@ -532,14 +532,14 @@ async function seedTenantData(planMap: Map<string, { id: string }>) {
         businessName: tenant.name,
         currency: tenant.currency,
         timezone: tenant.timezone,
-        taxRate: new Prisma.Decimal(5)
+        taxRate: new Prisma.Decimal(13)
       },
       create: {
         tenantId: tenant.id,
         businessName: tenant.name,
         currency: tenant.currency,
         timezone: tenant.timezone,
-        taxRate: new Prisma.Decimal(5),
+        taxRate: new Prisma.Decimal(13),
         paymentConfig: {
           cash: true,
           card: true,

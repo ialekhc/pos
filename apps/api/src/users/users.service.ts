@@ -39,7 +39,7 @@ export class UsersService {
     const tenantId = actor.role === UserRoleCode.SUPER_ADMIN ? dto.tenantId ?? null : actor.tenantId;
 
     if (!tenantId && dto.role !== UserRoleCode.SUPER_ADMIN) {
-      throw new ForbiddenException('Tenant context is required.');
+      throw new ForbiddenException('Vendor context is required.');
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && dto.role === UserRoleCode.SUPER_ADMIN) {
@@ -61,7 +61,7 @@ export class UsersService {
 
     if (dto.role !== UserRoleCode.SUPER_ADMIN) {
       if (!tenantId) {
-        throw new ForbiddenException('Tenant context is required.');
+        throw new ForbiddenException('Vendor context is required.');
       }
 
       const currentActiveStaff = await this.usersRepository.countActiveStaffByTenant(tenantId);
@@ -104,7 +104,7 @@ export class UsersService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && existingUser.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cannot update user outside tenant scope.');
+      throw new ForbiddenException('Cannot update user outside vendor scope.');
     }
 
     const updated = await this.usersRepository.update(userId, {
@@ -134,7 +134,7 @@ export class UsersService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && existingUser.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cannot update user outside tenant scope.');
+      throw new ForbiddenException('Cannot update user outside vendor scope.');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -159,7 +159,7 @@ export class UsersService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && existingUser.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cannot remove user outside tenant scope.');
+      throw new ForbiddenException('Cannot remove user outside vendor scope.');
     }
 
     await this.usersRepository.softDelete(userId);

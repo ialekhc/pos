@@ -48,12 +48,34 @@ export default function SuperAdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([apiRequest<AdminDashboardResponse>('/admin/dashboard'), apiRequest<HealthResponse>('/admin/system/health')])
-      .then(([dashboard, systemHealth]) => {
-        setData(dashboard);
-        setHealth(systemHealth);
-      })
-      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : 'Failed to load dashboard'));
+    Promise.allSettled([
+      apiRequest<AdminDashboardResponse>('/admin/dashboard'),
+      apiRequest<HealthResponse>('/admin/system/health')
+    ]).then(([dashboardResult, healthResult]) => {
+      const endpointErrors: string[] = [];
+
+      if (dashboardResult.status === 'fulfilled') {
+        setData(dashboardResult.value);
+      } else {
+        endpointErrors.push(
+          dashboardResult.reason instanceof Error
+            ? dashboardResult.reason.message
+            : 'Failed to load dashboard metrics'
+        );
+      }
+
+      if (healthResult.status === 'fulfilled') {
+        setHealth(healthResult.value);
+      } else {
+        endpointErrors.push(
+          healthResult.reason instanceof Error
+            ? `Health: ${healthResult.reason.message}`
+            : 'Health endpoint unavailable'
+        );
+      }
+
+      setError(endpointErrors.length ? endpointErrors.join(' | ') : null);
+    });
   }, []);
 
   const subscriptionRows = useMemo(
@@ -65,20 +87,17 @@ export default function SuperAdminDashboardPage() {
     [data?.subscriptionStatus]
   );
 
-  if (error) {
-    return <p className="text-sm text-destructive">{error}</p>;
-  }
-
   return (
     <div className="space-y-6">
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <MetricCard title="Total Tenants" value={data?.metrics.totalTenants ?? '-'} />
-        <MetricCard title="Active Tenants" value={data?.metrics.activeTenants ?? '-'} />
+        <MetricCard title="Total Vendors" value={data?.metrics.totalTenants ?? '-'} />
+        <MetricCard title="Active Vendors" value={data?.metrics.activeTenants ?? '-'} />
         <MetricCard title="Inactive/Suspended" value={data?.metrics.inactiveTenants ?? '-'} />
         <MetricCard title="Platform Users" value={data?.metrics.totalUsers ?? '-'} />
         <MetricCard title="Total Orders" value={data?.metrics.totalOrders ?? '-'} />
         <MetricCard
-          title="Revenue (All Tenants)"
+          title="Revenue (All Vendors)"
           value={formatCurrency(data?.metrics.totalRevenue ?? 0)}
         />
       </section>
@@ -99,7 +118,7 @@ export default function SuperAdminDashboardPage() {
             <p>Last Checked: {health?.timestamp ? new Date(health.timestamp).toLocaleString() : '-'}</p>
             <div className="flex flex-wrap gap-2 pt-2">
               <Button asChild size="sm">
-                <Link href="/super-admin/tenants">Manage Tenants</Link>
+                <Link href="/super-admin/tenants">Manage Vendors</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
                 <Link href="/super-admin/users">Manage Users</Link>
@@ -114,11 +133,11 @@ export default function SuperAdminDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Plan Distribution</CardTitle>
-            <CardDescription>How tenants are spread across pricing plans</CardDescription>
+            <CardDescription>How vendors are spread across pricing plans</CardDescription>
           </CardHeader>
           <CardContent>
             <DataTable
-              headers={['Plan', 'Code', 'Tenants']}
+              headers={['Plan', 'Code', 'Vendors']}
               rows={(data?.planDistribution ?? []).map((row) => [row.planName, row.planCode, row.count])}
             />
           </CardContent>
@@ -127,7 +146,7 @@ export default function SuperAdminDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Subscription Status</CardTitle>
-            <CardDescription>Current status of all tenant subscriptions</CardDescription>
+            <CardDescription>Current status of all vendor subscriptions</CardDescription>
           </CardHeader>
           <CardContent>
             <DataTable headers={['Status', 'Count']} rows={subscriptionRows} />
@@ -137,8 +156,8 @@ export default function SuperAdminDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Tenant Activity</CardTitle>
-          <CardDescription>System-level tenant events for support and governance</CardDescription>
+          <CardTitle>Recent Vendor Activity</CardTitle>
+          <CardDescription>System-level vendor events for support and governance</CardDescription>
         </CardHeader>
         <CardContent>
           <DataTable

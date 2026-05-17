@@ -34,7 +34,7 @@ export class EntitlementsService {
 
     const subscription = await this.plansRepository.findSubscriptionWithPlan(tenantId);
     if (!subscription) {
-      throw new NotFoundException('No active subscription found for tenant.');
+      throw new NotFoundException('No active subscription found for vendor.');
     }
 
     const entitlements: TenantEntitlements = {

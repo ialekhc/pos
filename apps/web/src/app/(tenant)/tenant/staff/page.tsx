@@ -304,7 +304,7 @@ export default function StaffPage() {
                 value={form.role}
                 onChange={(event) => setForm((state) => ({ ...state, role: event.target.value }))}
               >
-                <option value="TENANT_ADMIN">Tenant Admin</option>
+                <option value="TENANT_ADMIN">Vendor Admin</option>
                 <option value="MANAGER">Manager</option>
                 <option value="CASHIER">Cashier</option>
               </select>

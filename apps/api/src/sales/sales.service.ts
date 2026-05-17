@@ -10,6 +10,8 @@ import { HoldCartDto } from './dto/hold-cart.dto';
 import { RefundSaleDto } from './dto/refund-sale.dto';
 import { SalesRepository } from './sales.repository';
 
+const FIXED_VAT_RATE = 0.13;
+
 @Injectable()
 export class SalesService {
   constructor(
@@ -22,7 +24,7 @@ export class SalesService {
 
   list(actor: ActiveUser, takeRaw?: string) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const takeParsed = Number.parseInt(takeRaw ?? '', 10);
@@ -39,7 +41,7 @@ export class SalesService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && sale.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant access denied.');
+      throw new ForbiddenException('Cross-vendor access denied.');
     }
 
     return sale;
@@ -47,7 +49,7 @@ export class SalesService {
 
   async create(actor: ActiveUser, dto: CreateSaleDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     if (!dto.items.length) {
@@ -131,8 +133,8 @@ export class SalesService {
       dto.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
     const discountAmount = Math.min(Math.max(discountAmountRaw + partyAmount, 0), subtotal);
     const taxableSubtotal = Math.max(subtotal - discountAmount, 0);
-    const taxAmount = dto.taxAmount ?? Number((taxableSubtotal * 0.05).toFixed(2));
-    const taxRate = taxableSubtotal > 0 ? taxAmount / taxableSubtotal : 0;
+    const taxAmount = Number((taxableSubtotal * FIXED_VAT_RATE).toFixed(2));
+    const taxRate = taxableSubtotal > 0 ? FIXED_VAT_RATE : 0;
 
     const computedItems = computedItemsBase.map((item) => {
       const baseLine = item.unitPrice * item.quantity;
@@ -266,7 +268,7 @@ export class SalesService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && sale.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant refund denied.');
+      throw new ForbiddenException('Cross-vendor refund denied.');
     }
 
     const refundAllowedRoles: UserRoleCode[] = [
@@ -317,7 +319,7 @@ export class SalesService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && sale.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant cancel denied.');
+      throw new ForbiddenException('Cross-vendor cancel denied.');
     }
 
     const cancelAllowedRoles: UserRoleCode[] = [
@@ -359,7 +361,7 @@ export class SalesService {
 
   async holdCart(actor: ActiveUser, dto: HoldCartDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
@@ -384,7 +386,7 @@ export class SalesService {
 
     const subtotal = cartItems.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
     const discountAmount = dto.discountAmount ?? 0;
-    const taxAmount = dto.taxAmount ?? subtotal * 0.05;
+    const taxAmount = Number((subtotal * FIXED_VAT_RATE).toFixed(2));
     const total = subtotal - discountAmount + taxAmount;
 
     return this.salesRepository.createHeldCart({
@@ -410,7 +412,7 @@ export class SalesService {
 
   listHeldCarts(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.salesRepository.listHeldCarts(actor.tenantId, actor.userId);
@@ -418,7 +420,7 @@ export class SalesService {
 
   resumeHeldCart(actor: ActiveUser, cartId: string) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.salesRepository.resumeHeldCart(cartId);
@@ -426,7 +428,7 @@ export class SalesService {
 
   clearHeldCart(actor: ActiveUser, cartId: string) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.salesRepository.clearHeldCart(cartId);

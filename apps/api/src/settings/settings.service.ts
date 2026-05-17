@@ -5,6 +5,8 @@ import { AuditService } from '../audit/audit.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { SettingsRepository } from './settings.repository';
 
+const FIXED_VAT_PERCENT = 13;
+
 @Injectable()
 export class SettingsService {
   constructor(
@@ -12,22 +14,36 @@ export class SettingsService {
     private readonly auditService: AuditService
   ) {}
 
-  getSettings(actor: ActiveUser) {
+  async getSettings(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
-    return this.settingsRepository.findByTenant(actor.tenantId);
+    const existing = await this.settingsRepository.findByTenant(actor.tenantId);
+
+    if (!existing) {
+      return this.settingsRepository.upsert(actor.tenantId, {
+        taxRate: new Prisma.Decimal(FIXED_VAT_PERCENT)
+      });
+    }
+
+    if (Number(existing.taxRate) !== FIXED_VAT_PERCENT) {
+      return this.settingsRepository.upsert(actor.tenantId, {
+        taxRate: new Prisma.Decimal(FIXED_VAT_PERCENT)
+      });
+    }
+
+    return existing;
   }
 
   async updateSettings(actor: ActiveUser, dto: UpdateSettingsDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const updated = await this.settingsRepository.upsert(actor.tenantId, {
       ...(dto.businessName !== undefined ? { businessName: dto.businessName } : {}),
-      ...(dto.taxRate !== undefined ? { taxRate: new Prisma.Decimal(dto.taxRate) } : {}),
+      taxRate: new Prisma.Decimal(FIXED_VAT_PERCENT),
       ...(dto.receiptFooter !== undefined ? { receiptFooter: dto.receiptFooter } : {}),
       ...(dto.logoUrl !== undefined ? { logoUrl: dto.logoUrl } : {}),
       ...(dto.currency !== undefined ? { currency: dto.currency } : {}),

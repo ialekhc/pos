@@ -30,8 +30,6 @@ export function BillingPanel({
   onNotesChange,
   discountAmount,
   onDiscountAmountChange,
-  vatEnabled,
-  onVatEnabledChange,
   taxRatePercent,
   subtotal,
   tax,
@@ -69,8 +67,6 @@ export function BillingPanel({
   onNotesChange: (value: string) => void;
   discountAmount: number;
   onDiscountAmountChange: (value: number) => void;
-  vatEnabled: boolean;
-  onVatEnabledChange: (value: boolean) => void;
   taxRatePercent: number;
   subtotal: number;
   tax: number;
@@ -171,35 +167,13 @@ export function BillingPanel({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">VAT Mode</label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={vatEnabled ? 'default' : 'outline'}
-              onClick={() => onVatEnabledChange(true)}
-            >
-              VAT Enabled
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={!vatEnabled ? 'default' : 'outline'}
-              onClick={() => onVatEnabledChange(false)}
-            >
-              Without VAT Bill
-            </Button>
-          </div>
-        </div>
-
         <div className="grid gap-2 text-sm">
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
             <span>{formatCurrency(subtotal, currencyCode)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span>{vatEnabled ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT (Disabled)'}</span>
+            <span>{`VAT (${taxRatePercent.toFixed(2)}%)`}</span>
             <span>{formatCurrency(tax, currencyCode)}</span>
           </div>
           <div className="flex items-center justify-between text-base font-semibold">

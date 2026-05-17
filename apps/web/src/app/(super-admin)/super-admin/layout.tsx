@@ -6,7 +6,7 @@ import { Building2, CreditCard, LayoutDashboard, ShieldPlus, Sparkles } from 'lu
 
 const navItems = [
   { href: '/super-admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/super-admin/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/super-admin/tenants', label: 'Vendors', icon: Building2 },
   { href: '/super-admin/users', label: 'Users', icon: ShieldPlus },
   { href: '/super-admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { href: '/super-admin/plans', label: 'Plans & Features', icon: Sparkles }
@@ -17,7 +17,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     <RoleGate allowed={['SUPER_ADMIN']}>
       <AppShell
         title="Super Admin Control"
-        subtitle="Platform management, subscriptions, tenant health, and governance"
+        subtitle="Platform management, subscriptions, vendor health, and governance"
         navItems={navItems}
       >
         {children}

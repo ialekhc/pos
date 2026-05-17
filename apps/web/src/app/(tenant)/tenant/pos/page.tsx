@@ -15,6 +15,8 @@ import { useSessionStore } from '@/lib/stores/use-session-store';
 import { Party, PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
 import { formatCurrency, resolveCurrencyCode } from '@/lib/utils/currency';
 
+const FIXED_VAT_PERCENT = 13;
+
 type PaymentLineDraft = {
   id: string;
   method: PaymentMethod;
@@ -56,14 +58,6 @@ function extractErrorMessage(error: unknown) {
   }
 }
 
-function sanitizeTaxRate(value: number | string | null | undefined) {
-  const parsed = Number(value ?? 5);
-  if (!Number.isFinite(parsed)) {
-    return 5;
-  }
-  return Math.min(Math.max(parsed, 0), 100);
-}
-
 function createEstimateNumber() {
   return `EST-${Date.now().toString().slice(-8)}`;
 }
@@ -91,7 +85,6 @@ export default function PosPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
-  const [vatEnabled, setVatEnabled] = useState(true);
   const [splitMode, setSplitMode] = useState(false);
   const [singlePaymentMethod, setSinglePaymentMethod] = useState<PaymentMethod>('CASH');
   const [singlePaymentAmount, setSinglePaymentAmount] = useState(0);
@@ -129,13 +122,10 @@ export default function PosPage() {
     () => Number(Math.min(clampedManualDiscount + partyDiscountAmount, subtotal).toFixed(2)),
     [clampedManualDiscount, partyDiscountAmount, subtotal]
   );
-  const taxRatePercent = useMemo(() => sanitizeTaxRate(settings?.taxRate), [settings?.taxRate]);
+  const taxRatePercent = FIXED_VAT_PERCENT;
   const taxRateFactor = useMemo(() => taxRatePercent / 100, [taxRatePercent]);
   const taxableSubtotal = useMemo(() => Math.max(subtotal - totalDiscount, 0), [subtotal, totalDiscount]);
-  const tax = useMemo(
-    () => Number((vatEnabled ? taxableSubtotal * taxRateFactor : 0).toFixed(2)),
-    [taxRateFactor, taxableSubtotal, vatEnabled]
-  );
+  const tax = useMemo(() => Number((taxableSubtotal * taxRateFactor).toFixed(2)), [taxRateFactor, taxableSubtotal]);
   const total = useMemo(() => Number((taxableSubtotal + tax).toFixed(2)), [tax, taxableSubtotal]);
 
   const checkoutPayments = useMemo<SalePaymentInput[]>(() => {
@@ -210,7 +200,7 @@ export default function PosPage() {
   const loadRecentBills = async () => {
     setIsLoadingBills(true);
     try {
-      const bills = await apiRequest<PosSale[]>('/sales?take=15');
+      const bills = await apiRequest<PosSale[]>('/sales?take=100');
       setRecentBills(
         bills.map((sale) => ({
           ...sale,
@@ -393,7 +383,6 @@ export default function PosPage() {
     setReceiptDialogOpen(true);
     const printed = await printSaleReceipt(estimateSale, receiptContext, {
       billType: 'ESTIMATION',
-      vatEnabled,
       ioLabel: 'ESTIMATE'
     });
     if (printed) {
@@ -427,9 +416,6 @@ export default function PosPage() {
       const resolvedPartyName = customerName.trim() || selectedClientParty?.name || undefined;
       const resolvedPartyPhone = customerPhone.trim() || selectedClientParty?.phone || undefined;
       const normalizedNotes = notes.trim();
-      const composedNotes = [normalizedNotes, vatEnabled ? '' : 'WITHOUT_VAT_BILL']
-        .filter(Boolean)
-        .join(' | ');
 
       const sale = await apiRequest<PosSale>('/sales', {
         method: 'POST',
@@ -446,7 +432,7 @@ export default function PosPage() {
           partyName: resolvedPartyName,
           partyPhone: resolvedPartyPhone,
           partyPercent: Number(partyPercent.toFixed(2)),
-          notes: composedNotes || undefined,
+          notes: normalizedNotes || undefined,
           taxAmount: tax,
           discountAmount: clampedManualDiscount
         })
@@ -464,7 +450,6 @@ export default function PosPage() {
       if (autoPrintReceipt) {
         const printed = await printSaleReceipt(enrichedSale, receiptContext, {
           billType: 'SALE',
-          vatEnabled,
           ioLabel: 'OUT'
         });
         if (!printed) {
@@ -565,7 +550,7 @@ export default function PosPage() {
           tax={tax}
           total={total}
           currencyCode={receiptContext.currency}
-          taxLabel={vatEnabled ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT (Disabled)'}
+          taxLabel={`VAT (${taxRatePercent.toFixed(2)}%)`}
           onUpdateQuantity={updateQuantity}
           onRemove={removeItem}
           onClear={clear}
@@ -604,8 +589,6 @@ export default function PosPage() {
           onNotesChange={setNotes}
           discountAmount={discountAmount}
           onDiscountAmountChange={setDiscountAmount}
-          vatEnabled={vatEnabled}
-          onVatEnabledChange={setVatEnabled}
           taxRatePercent={taxRatePercent}
           subtotal={subtotal}
           tax={tax}

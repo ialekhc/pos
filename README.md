@@ -1,9 +1,9 @@
-# Multi-Tenant POS SaaS Platform (Next.js + NestJS)
+# Multi-Vendor POS SaaS Platform (Next.js + NestJS)
 
-Production-minded monorepo for a web-based multi-tenant POS SaaS platform with:
+Production-minded monorepo for a web-based multi-vendor POS SaaS platform with:
 
 - Super Admin control plane
-- Tenant workspaces (owner/manager/cashier)
+- Vendor workspaces (owner/manager/cashier)
 - Plan-based feature entitlement and usage limits
 - Real-time sync (Socket.IO)
 - Redis-backed caching support
@@ -13,14 +13,14 @@ Production-minded monorepo for a web-based multi-tenant POS SaaS platform with:
 ## Tech Stack
 
 - Frontend: Next.js 16, React 19, Tailwind CSS, shadcn/ui-style components
-- Backend: NestJS 11, JWT auth, RBAC, tenant guards
+- Backend: NestJS 11, JWT auth, RBAC, vendor guards
 - Database: PostgreSQL (Prisma ORM)
 - Cache/Session support: Redis
 - Real-time: Socket.IO
 
 ## Key Capabilities
 
-- Multi-tenant architecture with tenant-scoped data access
+- Multi-vendor architecture with vendor-scoped data access
 - Role system: `SUPER_ADMIN`, `TENANT_ADMIN`, `MANAGER`, `CASHIER`
 - Plan/feature system: `STARTUP`, `BRONZE`, `SILVER`, `GOLD`, `DIAMOND`
 - Plan limit enforcement for staff, products, and yearly orders
@@ -98,7 +98,7 @@ Super Admin:
 - Email: `superadmin@platform.local`
 - Password: `SuperSecure123!`
 
-Tenant users (seeded):
+Vendor users (seeded):
 
 - `admin@sunrise-mart.local` / `Password@123`
 - `manager@sunrise-mart.local` / `Password@123`

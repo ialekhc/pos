@@ -46,7 +46,7 @@ export class AuthService {
 
     const shouldValidateTenantSlug = Boolean(normalizedTenantSlug) && user.role.code !== UserRoleCode.SUPER_ADMIN;
     if (shouldValidateTenantSlug && user.tenant?.slug !== normalizedTenantSlug) {
-      throw new ForbiddenException('Tenant mismatch.');
+      throw new ForbiddenException('Vendor mismatch.');
     }
 
     const rawPassword = loginDto.password;

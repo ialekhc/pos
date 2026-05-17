@@ -20,7 +20,7 @@ export class TenantsController {
   @Get('me')
   me(@CurrentUser() user: ActiveUser) {
     if (!user.tenantId) {
-      return { message: 'Super admin has no tenant profile.' };
+      return { message: 'Super admin has no vendor profile.' };
     }
 
     return this.tenantsService.getById(user.tenantId);

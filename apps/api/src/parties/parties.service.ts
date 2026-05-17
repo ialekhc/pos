@@ -12,7 +12,7 @@ export class PartiesService {
 
   list(actor: ActiveUser, query: ListPartiesDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.partiesRepository.listByTenant({
@@ -25,7 +25,7 @@ export class PartiesService {
 
   async create(actor: ActiveUser, dto: CreatePartyDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.partiesRepository.create({
@@ -46,7 +46,7 @@ export class PartiesService {
 
   async update(actor: ActiveUser, partyId: string, dto: UpdatePartyDto) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const existing = await this.partiesRepository.findById(partyId);
@@ -56,7 +56,7 @@ export class PartiesService {
     }
 
     if (existing.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant update denied.');
+      throw new ForbiddenException('Cross-vendor update denied.');
     }
 
     return this.partiesRepository.update(partyId, {
@@ -76,7 +76,7 @@ export class PartiesService {
 
   async remove(actor: ActiveUser, partyId: string) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     const existing = await this.partiesRepository.findById(partyId);
@@ -86,7 +86,7 @@ export class PartiesService {
     }
 
     if (existing.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant delete denied.');
+      throw new ForbiddenException('Cross-vendor delete denied.');
     }
 
     return this.partiesRepository.softDelete(partyId);

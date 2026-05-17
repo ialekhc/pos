@@ -26,7 +26,7 @@ export class PaymentsService {
 
   list(actor: ActiveUser) {
     if (!actor.tenantId) {
-      throw new ForbiddenException('Tenant context required.');
+      throw new ForbiddenException('Vendor context required.');
     }
 
     return this.paymentsRepository.listByTenant(actor.tenantId);
@@ -83,7 +83,7 @@ export class PaymentsService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && sale.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant payment recording denied.');
+      throw new ForbiddenException('Cross-vendor payment recording denied.');
     }
 
     const payment = await this.processPayment({
@@ -118,7 +118,7 @@ export class PaymentsService {
     }
 
     if (actor.role !== UserRoleCode.SUPER_ADMIN && payment.tenantId !== actor.tenantId) {
-      throw new ForbiddenException('Cross-tenant reconciliation denied.');
+      throw new ForbiddenException('Cross-vendor reconciliation denied.');
     }
 
     await this.paymentsRepository.markTransactionReconciled(payment.id);

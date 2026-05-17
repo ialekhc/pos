@@ -86,7 +86,7 @@ export default function SuperAdminTenantsPage() {
       setPlans(planRows);
       setError(null);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load tenants');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load vendors');
     }
   };
 
@@ -121,10 +121,10 @@ export default function SuperAdminTenantsPage() {
         domain: '',
         initialPlanId: ''
       });
-      setMessage('Tenant created successfully.');
+      setMessage('Vendor created successfully.');
       await loadData();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to create tenant');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to create vendor');
     } finally {
       setIsSubmitting(false);
     }
@@ -137,10 +137,10 @@ export default function SuperAdminTenantsPage() {
       await apiRequest(`/tenants/${tenantId}/status/${status}`, {
         method: 'PATCH'
       });
-      setMessage(`Tenant status updated to ${status}.`);
+      setMessage(`Vendor status updated to ${status}.`);
       await loadData();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to update tenant status');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to update vendor status');
     }
   };
 
@@ -213,11 +213,11 @@ export default function SuperAdminTenantsPage() {
           domain: editForm.domain.trim() || undefined
         })
       });
-      setMessage('Tenant updated successfully.');
+      setMessage('Vendor updated successfully.');
       await loadData();
       cancelTenantEdit();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to update tenant');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to update vendor');
     } finally {
       setIsUpdatingTenant(false);
     }
@@ -225,7 +225,7 @@ export default function SuperAdminTenantsPage() {
 
   const removeTenant = async (tenant: TenantRow) => {
     const confirmed = window.confirm(
-      `Deactivate tenant "${tenant.name}" (${tenant.slug})? This will disable tenant access.`
+      `Deactivate vendor "${tenant.name}" (${tenant.slug})? This will disable vendor access.`
     );
     if (!confirmed) {
       return;
@@ -241,10 +241,10 @@ export default function SuperAdminTenantsPage() {
       if (editingTenantId === tenant.id) {
         cancelTenantEdit();
       }
-      setMessage('Tenant deactivated.');
+      setMessage('Vendor deactivated.');
       await loadData();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to remove tenant');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to remove vendor');
     } finally {
       setBusyTenantId(null);
     }
@@ -256,17 +256,17 @@ export default function SuperAdminTenantsPage() {
       {message ? <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">{message}</p> : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Total Tenants" value={tenantMetrics.total} />
-        <MetricCard title="Active Tenants" value={tenantMetrics.active} />
-        <MetricCard title="Suspended Tenants" value={tenantMetrics.suspended} />
+        <MetricCard title="Total Vendors" value={tenantMetrics.total} />
+        <MetricCard title="Active Vendors" value={tenantMetrics.active} />
+        <MetricCard title="Suspended Vendors" value={tenantMetrics.suspended} />
         <MetricCard title="Without Plan" value={tenantMetrics.withoutPlan} />
       </section>
 
       <Card>
         <CardHeader>
-          <CardTitle>Create Tenant Workspace</CardTitle>
+          <CardTitle>Create Vendor Workspace</CardTitle>
           <CardDescription>
-            New tenants get default roles and settings automatically, and can optionally start with a plan.
+            New vendors get default roles and settings automatically, and can optionally start with a plan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -281,7 +281,7 @@ export default function SuperAdminTenantsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Tenant Slug</label>
+              <label className="text-xs font-medium text-muted-foreground">Vendor Slug</label>
               <Input
                 placeholder="sunrise-mart"
                 value={form.slug}
@@ -331,7 +331,7 @@ export default function SuperAdminTenantsPage() {
               </select>
             </div>
             <div className="md:col-span-3">
-              <Button disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create Tenant'}</Button>
+              <Button disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create Vendor'}</Button>
             </div>
           </form>
         </CardContent>
@@ -340,8 +340,8 @@ export default function SuperAdminTenantsPage() {
       {editingTenantId ? (
         <Card>
           <CardHeader>
-            <CardTitle>Edit Tenant Workspace</CardTitle>
-            <CardDescription>Update tenant identity and regional profile settings.</CardDescription>
+            <CardTitle>Edit Vendor Workspace</CardTitle>
+            <CardDescription>Update vendor identity and regional profile settings.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="grid gap-3 md:grid-cols-3" onSubmit={updateTenant}>
@@ -354,7 +354,7 @@ export default function SuperAdminTenantsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Tenant Slug</label>
+                <label className="text-xs font-medium text-muted-foreground">Vendor Slug</label>
                 <Input
                   value={editForm.slug}
                   onChange={(event) =>
@@ -390,7 +390,7 @@ export default function SuperAdminTenantsPage() {
               </div>
               <div className="flex items-end gap-2">
                 <Button disabled={isUpdatingTenant}>
-                  {isUpdatingTenant ? 'Saving...' : 'Save Tenant'}
+                  {isUpdatingTenant ? 'Saving...' : 'Save Vendor'}
                 </Button>
                 <Button type="button" variant="outline" onClick={cancelTenantEdit}>
                   Cancel
@@ -403,12 +403,12 @@ export default function SuperAdminTenantsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tenant Operations</CardTitle>
+          <CardTitle>Vendor Operations</CardTitle>
           <CardDescription>Manage statuses, headcount, and subscription assignment from a single control table.</CardDescription>
         </CardHeader>
         <CardContent>
           <DataTable
-            headers={['Tenant', 'Status', 'Plan', 'Users', 'Region', 'Created', 'Actions']}
+            headers={['Vendor', 'Status', 'Plan', 'Users', 'Region', 'Created', 'Actions']}
             rows={tenants.map((tenant) => [
               <div key={`${tenant.id}-name`} className="space-y-1">
                 <p className="font-semibold">{tenant.name}</p>
