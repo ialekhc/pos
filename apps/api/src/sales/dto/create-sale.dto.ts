@@ -62,6 +62,10 @@ export class CreateSaleDto {
   taxAmount?: number;
 
   @IsOptional()
+  @IsIn(['WITH_VAT', 'WITHOUT_VAT'])
+  vatMode?: 'WITH_VAT' | 'WITHOUT_VAT';
+
+  @IsOptional()
   @IsString()
   partyId?: string;
 

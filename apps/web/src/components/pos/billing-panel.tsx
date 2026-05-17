@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Party, PaymentMethod } from '@/lib/types';
+import { Party, PaymentMethod, VatMode } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils/currency';
 
 type PaymentLineDraft = {
@@ -30,6 +30,8 @@ export function BillingPanel({
   onNotesChange,
   discountAmount,
   onDiscountAmountChange,
+  vatMode,
+  onVatModeChange,
   taxRatePercent,
   subtotal,
   tax,
@@ -67,6 +69,8 @@ export function BillingPanel({
   onNotesChange: (value: string) => void;
   discountAmount: number;
   onDiscountAmountChange: (value: number) => void;
+  vatMode: VatMode;
+  onVatModeChange: (value: VatMode) => void;
   taxRatePercent: number;
   subtotal: number;
   tax: number;
@@ -167,14 +171,39 @@ export function BillingPanel({
           />
         </div>
 
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">VAT Mode</label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={vatMode === 'WITH_VAT' ? 'default' : 'outline'}
+              onClick={() => onVatModeChange('WITH_VAT')}
+            >
+              With VAT (13%)
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={vatMode === 'WITHOUT_VAT' ? 'default' : 'outline'}
+              onClick={() => onVatModeChange('WITHOUT_VAT')}
+            >
+              Without VAT
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            The selected mode is printed clearly on the final bill.
+          </p>
+        </div>
+
         <div className="grid gap-2 text-sm">
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
             <span>{formatCurrency(subtotal, currencyCode)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span>{`VAT (${taxRatePercent.toFixed(2)}%)`}</span>
-            <span>{formatCurrency(tax, currencyCode)}</span>
+            <span>{vatMode === 'WITH_VAT' ? `VAT (${taxRatePercent.toFixed(2)}%)` : 'VAT'}</span>
+            <span>{vatMode === 'WITH_VAT' ? formatCurrency(tax, currencyCode) : 'Not Applied'}</span>
           </div>
           <div className="flex items-center justify-between text-base font-semibold">
             <span>Bill Total</span>

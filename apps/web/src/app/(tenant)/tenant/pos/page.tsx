@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOfflineCart } from '@/hooks/use-offline-cart';
 import { apiRequest } from '@/lib/api/client';
 import { useSessionStore } from '@/lib/stores/use-session-store';
-import { Party, PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput } from '@/lib/types';
+import { Party, PaymentMethod, PosSale, PosSettings, Product, SalePaymentInput, VatMode } from '@/lib/types';
 import { formatCurrency, resolveCurrencyCode } from '@/lib/utils/currency';
 
 const FIXED_VAT_PERCENT = 13;
@@ -72,6 +72,14 @@ function categoryLabel(category?: { name: string; parent?: { name: string } | nu
   return category.name;
 }
 
+function readReceiptConfigValue(
+  config: PosSettings['receiptConfig'] | undefined | null,
+  key: 'contactPhone' | 'contactEmail' | 'contactAddress' | 'headerNote'
+) {
+  const value = config?.[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
 export default function PosPage() {
   const sessionUser = useSessionStore((state) => state.user);
   const [products, setProducts] = useState<Product[]>([]);
@@ -85,6 +93,7 @@ export default function PosPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [vatMode, setVatMode] = useState<VatMode>('WITH_VAT');
   const [splitMode, setSplitMode] = useState(false);
   const [singlePaymentMethod, setSinglePaymentMethod] = useState<PaymentMethod>('CASH');
   const [singlePaymentAmount, setSinglePaymentAmount] = useState(0);
@@ -122,7 +131,7 @@ export default function PosPage() {
     () => Number(Math.min(clampedManualDiscount + partyDiscountAmount, subtotal).toFixed(2)),
     [clampedManualDiscount, partyDiscountAmount, subtotal]
   );
-  const taxRatePercent = FIXED_VAT_PERCENT;
+  const taxRatePercent = vatMode === 'WITH_VAT' ? FIXED_VAT_PERCENT : 0;
   const taxRateFactor = useMemo(() => taxRatePercent / 100, [taxRatePercent]);
   const taxableSubtotal = useMemo(() => Math.max(subtotal - totalDiscount, 0), [subtotal, totalDiscount]);
   const tax = useMemo(() => Number((taxableSubtotal * taxRateFactor).toFixed(2)), [taxRateFactor, taxableSubtotal]);
@@ -182,6 +191,11 @@ export default function PosPage() {
       businessName: settings?.businessName || sessionUser?.tenantName || 'POS Cloud',
       currency: resolveCurrencyCode(settings?.currency),
       receiptFooter: settings?.receiptFooter || undefined,
+      logoUrl: settings?.logoUrl || undefined,
+      contactPhone: readReceiptConfigValue(settings?.receiptConfig, 'contactPhone'),
+      contactEmail: readReceiptConfigValue(settings?.receiptConfig, 'contactEmail'),
+      contactAddress: readReceiptConfigValue(settings?.receiptConfig, 'contactAddress'),
+      headerNote: readReceiptConfigValue(settings?.receiptConfig, 'headerNote'),
       timezone: settings?.timezone || undefined,
       cashierName: `${sessionUser?.firstName ?? ''} ${sessionUser?.lastName ?? ''}`.trim() || undefined
     }),
@@ -205,6 +219,7 @@ export default function PosPage() {
         bills.map((sale) => ({
           ...sale,
           billType: sale.billType ?? 'SALE',
+          vatMode: sale.vatMode ?? (Number(sale.taxAmount || 0) > 0 ? 'WITH_VAT' : 'WITHOUT_VAT'),
           partyName: sale.partyName ?? sale.customerName ?? null,
           partyPhone: sale.partyPhone ?? sale.customerPhone ?? null,
           partyPercent: sale.partyPercent ?? '0',
@@ -260,6 +275,7 @@ export default function PosPage() {
     setCustomerPhone('');
     setNotes('');
     setDiscountAmount(0);
+    setVatMode('WITH_VAT');
     setSelectedPartyId('');
     setPartyPercent(0);
     setSplitMode(false);
@@ -273,6 +289,7 @@ export default function PosPage() {
     return {
       ...sale,
       billType: sale.billType ?? 'SALE',
+      vatMode: sale.vatMode ?? (Number(sale.taxAmount || 0) > 0 ? 'WITH_VAT' : 'WITHOUT_VAT'),
       partyName: sale.partyName ?? sale.customerName ?? null,
       partyPhone: sale.partyPhone ?? sale.customerPhone ?? null,
       partyPercent: sale.partyPercent ?? '0',
@@ -352,6 +369,7 @@ export default function PosPage() {
       id: `estimate-${Date.now()}`,
       saleNumber: createEstimateNumber(),
       billType: 'ESTIMATION',
+      vatMode,
       status: 'COMPLETED',
       source: 'POS',
       customerName: resolvedPartyName,
@@ -383,7 +401,8 @@ export default function PosPage() {
     setReceiptDialogOpen(true);
     const printed = await printSaleReceipt(estimateSale, receiptContext, {
       billType: 'ESTIMATION',
-      ioLabel: 'ESTIMATE'
+      ioLabel: 'ESTIMATE',
+      vatMode
     });
     if (printed) {
       setMessage(`Estimation bill ${estimateSale.saleNumber} generated.`);
@@ -434,13 +453,15 @@ export default function PosPage() {
           partyPercent: Number(partyPercent.toFixed(2)),
           notes: normalizedNotes || undefined,
           taxAmount: tax,
+          vatMode,
           discountAmount: clampedManualDiscount
         })
       });
 
       const enrichedSale = enrichSaleWithCartMetadata({
         ...sale,
-        billType: 'SALE'
+        billType: 'SALE',
+        vatMode
       });
 
       setMessage(`Bill ${enrichedSale.saleNumber} completed and synced.`);
@@ -450,7 +471,8 @@ export default function PosPage() {
       if (autoPrintReceipt) {
         const printed = await printSaleReceipt(enrichedSale, receiptContext, {
           billType: 'SALE',
-          ioLabel: 'OUT'
+          ioLabel: 'OUT',
+          vatMode
         });
         if (!printed) {
           setError(
@@ -589,6 +611,8 @@ export default function PosPage() {
           onNotesChange={setNotes}
           discountAmount={discountAmount}
           onDiscountAmountChange={setDiscountAmount}
+          vatMode={vatMode}
+          onVatModeChange={setVatMode}
           taxRatePercent={taxRatePercent}
           subtotal={subtotal}
           tax={tax}

@@ -16,7 +16,27 @@ type SettingsForm = {
   currency: string;
   timezone: string;
   receiptFooter: string;
+  logoUrl: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactAddress: string;
+  headerNote: string;
 };
+
+type SettingsResponse = {
+  businessName?: string;
+  taxRate?: number;
+  currency?: string;
+  timezone?: string;
+  receiptFooter?: string;
+  logoUrl?: string | null;
+  receiptConfig?: Record<string, unknown> | null;
+};
+
+function readConfigString(config: Record<string, unknown> | null | undefined, key: string) {
+  const value = config?.[key];
+  return typeof value === 'string' ? value : '';
+}
 
 function parseRequestError(error: unknown) {
   if (!(error instanceof Error)) {
@@ -44,7 +64,12 @@ export default function SettingsPage() {
     taxRate: FIXED_VAT_PERCENT,
     currency: 'NPR',
     timezone: 'UTC',
-    receiptFooter: 'Thank you for shopping with us!'
+    receiptFooter: 'Thank you for shopping with us!',
+    logoUrl: '',
+    contactPhone: '',
+    contactEmail: '',
+    contactAddress: '',
+    headerNote: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,18 +78,26 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setLoading(true);
-    apiRequest<Partial<SettingsForm>>('/settings')
+    apiRequest<SettingsResponse>('/settings')
       .then((data) => {
         if (!data) {
           return;
         }
+
+        const receiptConfig =
+          data.receiptConfig && typeof data.receiptConfig === 'object' ? data.receiptConfig : null;
 
         setForm({
           businessName: data.businessName ?? '',
           taxRate: FIXED_VAT_PERCENT,
           currency: resolveCurrencyCode(data.currency),
           timezone: data.timezone ?? 'UTC',
-          receiptFooter: data.receiptFooter ?? ''
+          receiptFooter: data.receiptFooter ?? '',
+          logoUrl: data.logoUrl ?? '',
+          contactPhone: readConfigString(receiptConfig, 'contactPhone'),
+          contactEmail: readConfigString(receiptConfig, 'contactEmail'),
+          contactAddress: readConfigString(receiptConfig, 'contactAddress'),
+          headerNote: readConfigString(receiptConfig, 'headerNote')
         });
       })
       .catch((requestError) => {
@@ -90,7 +123,14 @@ export default function SettingsPage() {
           currency: form.currency.trim().toUpperCase(),
           timezone: form.timezone.trim(),
           businessName: form.businessName.trim(),
-          receiptFooter: form.receiptFooter.trim()
+          receiptFooter: form.receiptFooter.trim(),
+          logoUrl: form.logoUrl.trim(),
+          receiptConfig: {
+            contactPhone: form.contactPhone.trim(),
+            contactEmail: form.contactEmail.trim(),
+            contactAddress: form.contactAddress.trim(),
+            headerNote: form.headerNote.trim()
+          }
         })
       });
 
@@ -149,7 +189,9 @@ export default function SettingsPage() {
                 readOnly
                 disabled
               />
-              <p className="text-[11px] text-muted-foreground">VAT is fixed at 13% for all invoices.</p>
+              <p className="text-[11px] text-muted-foreground">
+                VAT rate is fixed at 13%. During billing, you can choose With VAT or Without VAT per bill.
+              </p>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Currency Code</label>
@@ -177,9 +219,58 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Receipt Settings</CardTitle>
-            <CardDescription>Customize what appears at the bottom of every printed receipt.</CardDescription>
+            <CardDescription>Customize how your printed bills look for customers.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Logo URL</label>
+              <Input
+                placeholder="https://example.com/logo.png"
+                value={form.logoUrl}
+                onChange={(event) => setForm((state) => ({ ...state, logoUrl: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Header Note</label>
+              <Input
+                placeholder="Authorized dealer of genuine parts"
+                value={form.headerNote}
+                onChange={(event) => setForm((state) => ({ ...state, headerNote: event.target.value }))}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Contact Phone</label>
+                <Input
+                  placeholder="+977-98XXXXXXXX"
+                  value={form.contactPhone}
+                  onChange={(event) =>
+                    setForm((state) => ({ ...state, contactPhone: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Contact Email</label>
+                <Input
+                  placeholder="support@yourstore.com"
+                  value={form.contactEmail}
+                  onChange={(event) =>
+                    setForm((state) => ({ ...state, contactEmail: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Contact Address</label>
+              <Textarea
+                rows={2}
+                placeholder="Kalanki, Kathmandu, Nepal"
+                value={form.contactAddress}
+                onChange={(event) =>
+                  setForm((state) => ({ ...state, contactAddress: event.target.value }))
+                }
+              />
+            </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Receipt Footer</label>
               <Textarea

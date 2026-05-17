@@ -127,14 +127,15 @@ export class SalesService {
     }
 
     const subtotal = computedItemsBase.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const vatMode = dto.vatMode === 'WITHOUT_VAT' ? 'WITHOUT_VAT' : 'WITH_VAT';
     const partyAmount = Number(((subtotal * resolvedPartyPercent) / 100).toFixed(2));
     const discountAmountRaw =
       dto.discountAmount ??
       dto.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
     const discountAmount = Math.min(Math.max(discountAmountRaw + partyAmount, 0), subtotal);
     const taxableSubtotal = Math.max(subtotal - discountAmount, 0);
-    const taxAmount = Number((taxableSubtotal * FIXED_VAT_RATE).toFixed(2));
-    const taxRate = taxableSubtotal > 0 ? FIXED_VAT_RATE : 0;
+    const taxRate = vatMode === 'WITH_VAT' && taxableSubtotal > 0 ? FIXED_VAT_RATE : 0;
+    const taxAmount = Number((taxableSubtotal * taxRate).toFixed(2));
 
     const computedItems = computedItemsBase.map((item) => {
       const baseLine = item.unitPrice * item.quantity;

@@ -23,6 +23,11 @@ function categoryLabel(category?: { name: string; parent?: { name: string } | nu
   return category.name;
 }
 
+function resolveVatModeLabel(sale: PosSale) {
+  const mode = sale.vatMode ?? (Number(sale.taxAmount || 0) > 0 ? 'WITH_VAT' : 'WITHOUT_VAT');
+  return mode === 'WITH_VAT' ? 'VAT Included (13%)' : 'Without VAT';
+}
+
 export function CheckoutReceiptDialog({
   open,
   onOpenChange,
@@ -95,6 +100,9 @@ export function CheckoutReceiptDialog({
               <p>
                 <span className="text-muted-foreground">Paid:</span>{' '}
                 {formatCurrency(sale.paidAmount, printContext.currency)}
+              </p>
+              <p>
+                <span className="text-muted-foreground">VAT Mode:</span> {resolveVatModeLabel(sale)}
               </p>
             </div>
 

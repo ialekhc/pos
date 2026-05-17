@@ -1,6 +1,6 @@
 'use client';
 
-import { PosSale, PosSaleItem } from '@/lib/types';
+import { PosSale, PosSaleItem, VatMode } from '@/lib/types';
 import { resolveCurrencyCode } from '@/lib/utils/currency';
 
 export type ReceiptPrintContext = {
@@ -9,11 +9,17 @@ export type ReceiptPrintContext = {
   receiptFooter?: string | null;
   timezone?: string | null;
   cashierName?: string;
+  logoUrl?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  contactAddress?: string | null;
+  headerNote?: string | null;
 };
 
 export type PrintBillOptions = {
   billType?: 'SALE' | 'ESTIMATION';
   ioLabel?: 'OUT' | 'IN' | 'ESTIMATE';
+  vatMode?: VatMode;
 };
 
 const TIMEZONE_ALIAS_MAP: Record<string, string> = {
@@ -104,6 +110,7 @@ function buildReceiptHtml({
   sale,
   context,
   billType,
+  vatMode,
   titlePrefix,
   partyType,
   partyName,
@@ -117,6 +124,7 @@ function buildReceiptHtml({
   sale: PosSale;
   context: ReceiptPrintContext;
   billType: 'SALE' | 'ESTIMATION';
+  vatMode: VatMode;
   titlePrefix: string;
   partyType: string;
   partyName: string;
@@ -127,6 +135,15 @@ function buildReceiptHtml({
   paymentRows: string;
   completedAt: string;
 }) {
+  const billTag =
+    billType === 'ESTIMATION'
+      ? 'Estimation'
+      : vatMode === 'WITH_VAT'
+      ? 'Tax Invoice'
+      : 'Invoice (Without VAT)';
+
+  const vatModeLabel = vatMode === 'WITH_VAT' ? 'VAT Included (13%)' : 'Without VAT';
+
   return `<!DOCTYPE html>
   <html>
     <head>
@@ -138,8 +155,11 @@ function buildReceiptHtml({
         body { margin: 0; padding: 20px; background: #f4f6fb; color: #111827; line-height: 1.4; font-family: "Segoe UI", Arial, sans-serif; }
         .sheet { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 22px; }
         .header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 14px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .logo { width: 60px; height: 60px; object-fit: contain; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; }
         h1 { margin: 0; font-size: 24px; line-height: 1.2; }
         .sub { margin-top: 4px; font-size: 13px; color: #6b7280; }
+        .head-note { margin-top: 4px; font-size: 12px; color: #4b5563; white-space: pre-wrap; }
         .bill-tag { border: 1px solid #d1d5db; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .04em; }
         .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-bottom: 16px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; font-size: 12px; color: #374151; }
         .meta p { margin: 0; }
@@ -160,11 +180,21 @@ function buildReceiptHtml({
     <body>
       <div class="sheet">
         <div class="header">
-          <div>
-            <h1>${escapeHtml(context.businessName || 'POS Bill')}</h1>
-            <div class="sub">${escapeHtml(titlePrefix)} ${escapeHtml(sale.saleNumber)}</div>
+          <div class="brand">
+            ${
+              context.logoUrl
+                ? `<img class="logo" src="${escapeHtml(context.logoUrl)}" alt="${escapeHtml(
+                    context.businessName || 'Business Logo'
+                  )}" />`
+                : ''
+            }
+            <div>
+              <h1>${escapeHtml(context.businessName || 'POS Bill')}</h1>
+              <div class="sub">${escapeHtml(titlePrefix)} ${escapeHtml(sale.saleNumber)}</div>
+              ${context.headerNote ? `<div class="head-note">${escapeHtml(context.headerNote)}</div>` : ''}
+            </div>
           </div>
-          <div class="bill-tag">${escapeHtml(billType === 'ESTIMATION' ? 'Estimation' : 'Tax Invoice')}</div>
+          <div class="bill-tag">${escapeHtml(billTag)}</div>
         </div>
 
         <div class="meta">
@@ -176,7 +206,10 @@ function buildReceiptHtml({
           <p><strong>Party %:</strong> ${escapeHtml(partyPercent.toFixed(2))}%</p>
           <p><strong>Party Amount:</strong> ${toMoney(partyAmount, context.currency)}</p>
           <p><strong>Cashier:</strong> ${escapeHtml(context.cashierName || '-')}</p>
-          <p><strong>VAT Rate:</strong> 13%</p>
+          <p><strong>VAT Mode:</strong> ${escapeHtml(vatModeLabel)}</p>
+          <p><strong>Contact Phone:</strong> ${escapeHtml(context.contactPhone || '-')}</p>
+          <p><strong>Contact Email:</strong> ${escapeHtml(context.contactEmail || '-')}</p>
+          <p><strong>Contact Address:</strong> ${escapeHtml(context.contactAddress || '-')}</p>
           <p><strong>Note:</strong> ${escapeHtml(sale.notes || '-')}</p>
         </div>
 
@@ -200,7 +233,11 @@ function buildReceiptHtml({
               <tr><td>Subtotal</td><td>${toMoney(sale.subtotal, context.currency)}</td></tr>
               <tr><td>Total Discount</td><td>${toMoney(sale.discountAmount, context.currency)}</td></tr>
               <tr><td>Party Discount Part</td><td>${toMoney(partyAmount, context.currency)}</td></tr>
-              <tr><td>VAT (13%)</td><td>${toMoney(sale.taxAmount, context.currency)}</td></tr>
+              ${
+                vatMode === 'WITH_VAT'
+                  ? `<tr><td>VAT (13%)</td><td>${toMoney(sale.taxAmount, context.currency)}</td></tr>`
+                  : `<tr><td>VAT</td><td>Not Applied</td></tr>`
+              }
               <tr><td>Total</td><td>${toMoney(sale.totalAmount, context.currency)}</td></tr>
               <tr><td>Paid</td><td>${toMoney(sale.paidAmount, context.currency)}</td></tr>
               <tr><td>Change</td><td>${toMoney(sale.changeAmount, context.currency)}</td></tr>
@@ -360,6 +397,8 @@ export async function printSaleReceipt(
 
   const billType = options?.billType ?? sale.billType ?? 'SALE';
   const defaultIoLabel = billType === 'ESTIMATION' ? 'ESTIMATE' : 'OUT';
+  const vatMode: VatMode =
+    options?.vatMode ?? sale.vatMode ?? (Number(sale.taxAmount || 0) > 0 ? 'WITH_VAT' : 'WITHOUT_VAT');
   const partyName = sale.partyName || sale.customerName || '-';
   const partyPhone = sale.partyPhone || sale.customerPhone || '-';
   const partyType = sale.partyType || 'CLIENT';
@@ -415,6 +454,7 @@ export async function printSaleReceipt(
     sale,
     context,
     billType,
+    vatMode,
     titlePrefix,
     partyType,
     partyName,

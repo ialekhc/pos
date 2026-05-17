@@ -23,6 +23,7 @@ function normalizeSale(sale: PosSale): PosSale {
   return {
     ...sale,
     billType: sale.billType ?? 'SALE',
+    vatMode: sale.vatMode ?? (Number(sale.taxAmount || 0) > 0 ? 'WITH_VAT' : 'WITHOUT_VAT'),
     partyName: sale.partyName ?? sale.customerName ?? null,
     partyPhone: sale.partyPhone ?? sale.customerPhone ?? null,
     partyPercent: sale.partyPercent ?? '0',
@@ -34,6 +35,14 @@ function normalizeSale(sale: PosSale): PosSale {
       ioLabel: item.ioLabel ?? 'OUT'
     }))
   };
+}
+
+function readReceiptConfigValue(
+  config: PosSettings['receiptConfig'] | undefined | null,
+  key: 'contactPhone' | 'contactEmail' | 'contactAddress' | 'headerNote'
+) {
+  const value = config?.[key];
+  return typeof value === 'string' ? value : undefined;
 }
 
 export default function BillingsPage() {
@@ -48,6 +57,11 @@ export default function BillingsPage() {
       businessName: settings?.businessName || sessionUser?.tenantName || 'POS Cloud',
       currency: resolveCurrencyCode(settings?.currency),
       receiptFooter: settings?.receiptFooter || undefined,
+      logoUrl: settings?.logoUrl || undefined,
+      contactPhone: readReceiptConfigValue(settings?.receiptConfig, 'contactPhone'),
+      contactEmail: readReceiptConfigValue(settings?.receiptConfig, 'contactEmail'),
+      contactAddress: readReceiptConfigValue(settings?.receiptConfig, 'contactAddress'),
+      headerNote: readReceiptConfigValue(settings?.receiptConfig, 'headerNote'),
       timezone: settings?.timezone || undefined,
       cashierName: `${sessionUser?.firstName ?? ''} ${sessionUser?.lastName ?? ''}`.trim() || undefined
     }),

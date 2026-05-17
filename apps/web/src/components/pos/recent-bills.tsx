@@ -25,6 +25,11 @@ function categoryLabel(category?: { name: string; parent?: { name: string } | nu
   return category.name;
 }
 
+function resolveVatModeLabel(bill: PosSale) {
+  const mode = bill.vatMode ?? (Number(bill.taxAmount || 0) > 0 ? 'WITH_VAT' : 'WITHOUT_VAT');
+  return mode === 'WITH_VAT' ? 'VAT Included (13%)' : 'Without VAT';
+}
+
 export function RecentBills({
   bills,
   loading,
@@ -158,7 +163,7 @@ export function RecentBills({
                 <p className="text-sm font-medium">{bill.saleNumber}</p>
                 <p className="text-xs text-muted-foreground">{new Date(bill.completedAt).toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">
-                  Party: {bill.partyName || bill.customerName || '-'} | Status: {bill.status}
+                  Party: {bill.partyName || bill.customerName || '-'} | Status: {bill.status} | {resolveVatModeLabel(bill)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -196,6 +201,7 @@ export function RecentBills({
                           <p>Party Type: {selectedBill.partyType || 'CLIENT'}</p>
                           <p>Party %: {Number(selectedBill.partyPercent || 0).toFixed(2)}%</p>
                           <p>Status: {selectedBill.status}</p>
+                          <p>VAT Mode: {resolveVatModeLabel(selectedBill)}</p>
                           <p>Completed: {new Date(selectedBill.completedAt).toLocaleString()}</p>
                         </div>
 
@@ -238,7 +244,12 @@ export function RecentBills({
                           <p>Subtotal: {formatCurrency(selectedBill.subtotal, receiptContext.currency)}</p>
                           <p>Total Discount: {formatCurrency(selectedBill.discountAmount, receiptContext.currency)}</p>
                           <p>Party Amount: {formatCurrency(selectedBill.partyAmount || 0, receiptContext.currency)}</p>
-                          <p>VAT (13%): {formatCurrency(selectedBill.taxAmount, receiptContext.currency)}</p>
+                          <p>
+                            {resolveVatModeLabel(selectedBill)}:{' '}
+                            {Number(selectedBill.taxAmount || 0) > 0
+                              ? formatCurrency(selectedBill.taxAmount, receiptContext.currency)
+                              : 'Not Applied'}
+                          </p>
                           <p>Total: {formatCurrency(selectedBill.totalAmount, receiptContext.currency)}</p>
                           <p>Paid: {formatCurrency(selectedBill.paidAmount, receiptContext.currency)}</p>
                           <p>Change: {formatCurrency(selectedBill.changeAmount, receiptContext.currency)}</p>

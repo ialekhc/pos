@@ -38,6 +38,7 @@ export type Product = {
 };
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'QR' | 'WALLET' | 'MANUAL';
+export type VatMode = 'WITH_VAT' | 'WITHOUT_VAT';
 
 export type PartyType = 'VENDOR' | 'CLIENT';
 
@@ -102,6 +103,7 @@ export type PosSale = {
   id: string;
   saleNumber: string;
   billType?: 'SALE' | 'ESTIMATION';
+  vatMode?: VatMode;
   status: 'COMPLETED' | 'REFUNDED' | 'CANCELED';
   source: 'POS' | 'WEB' | 'API';
   partyId?: string | null;
@@ -127,10 +129,19 @@ export type PosSale = {
   cashier?: { firstName?: string | null; lastName?: string | null } | null;
 };
 
+export type ReceiptConfig = {
+  contactPhone?: string;
+  contactEmail?: string;
+  contactAddress?: string;
+  headerNote?: string;
+};
+
 export type PosSettings = {
   businessName: string;
   currency: string;
   receiptFooter?: string | null;
+  logoUrl?: string | null;
+  receiptConfig?: ReceiptConfig | null;
   timezone?: string | null;
   taxRate?: number | string | null;
 };
