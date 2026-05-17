@@ -13,6 +13,13 @@ type NavItem = {
   icon?: LucideIcon;
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  TENANT_ADMIN: 'Vendor Admin',
+  MANAGER: 'Manager',
+  CASHIER: 'Cashier'
+};
+
 export function AppShell({
   title,
   subtitle,
@@ -41,7 +48,9 @@ export function AppShell({
           {user?.role === 'SUPER_ADMIN' ? <ShieldCheck className="h-5 w-5 text-primary" /> : <Store className="h-5 w-5 text-primary" />}
           <div>
             <p className="text-sm font-semibold">POS Control Cloud</p>
-            <p className="text-xs text-muted-foreground">{user?.role?.replaceAll('_', ' ')}</p>
+            <p className="text-xs text-muted-foreground">
+              {user?.role ? ROLE_LABELS[user.role] ?? user.role.replaceAll('_', ' ') : ''}
+            </p>
           </div>
         </div>
 

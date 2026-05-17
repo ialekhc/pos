@@ -16,7 +16,6 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [tenantSlug, setTenantSlug] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,15 +26,12 @@ export default function LoginPage() {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      const normalizedTenantSlug = tenantSlug.trim().toLowerCase();
-      const isLikelySuperAdmin = normalizedEmail.endsWith('@platform.local');
 
       const payload = await apiRequest<AuthPayload>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({
           email: normalizedEmail,
-          password,
-          tenantSlug: !isLikelySuperAdmin && normalizedTenantSlug ? normalizedTenantSlug : undefined
+          password
         })
       });
 
@@ -98,20 +94,6 @@ export default function LoginPage() {
               autoComplete="current-password"
               required
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Vendor Slug (optional)</label>
-            <Input
-              type="text"
-              value={tenantSlug}
-              onChange={(event) => setTenantSlug(event.target.value)}
-              placeholder="your-vendor-slug"
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use this only if your account belongs to a specific vendor workspace.
-            </p>
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

@@ -6,6 +6,7 @@ import {
   BarChart3,
   Boxes,
   CreditCard,
+  FileText,
   Handshake,
   LayoutDashboard,
   Package,
@@ -17,15 +18,16 @@ import {
 
 const navItems = [
   { href: '/tenant/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/tenant/pos', label: 'POS', icon: ShoppingCart },
+  { href: '/tenant/pos', label: 'POS Counter', icon: ShoppingCart },
   { href: '/tenant/products', label: 'Products', icon: Package },
   { href: '/tenant/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/tenant/sales', label: 'Sales', icon: Receipt },
-  { href: '/tenant/parties', label: 'Parties', icon: Handshake },
-  { href: '/tenant/staff', label: 'Staff', icon: Users },
+  { href: '/tenant/sales', label: 'Sales & Returns', icon: Receipt },
+  { href: '/tenant/billings', label: 'Billings', icon: FileText },
+  { href: '/tenant/parties', label: 'Vendors & Clients', icon: Handshake },
+  { href: '/tenant/staff', label: 'Team & Staff', icon: Users },
   { href: '/tenant/reports', label: 'Reports', icon: BarChart3 },
   { href: '/tenant/settings', label: 'Settings', icon: Settings },
-  { href: '/tenant/subscription', label: 'Subscription', icon: CreditCard }
+  { href: '/tenant/subscription', label: 'Subscription Plan', icon: CreditCard }
 ];
 
 export default function TenantLayout({ children }: { children: React.ReactNode }) {
