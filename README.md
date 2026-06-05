@@ -132,15 +132,14 @@ Payment logic is provider-agnostic:
 - Add centralized logs/traces and alerting
 - Use separate JWT secrets per environment and rotate periodically
 
-## Free Hosting (Now)
+## Managed Data Services
 
-You can run this on free tiers using:
+You can use managed services for production-like environments:
 
-- Render (API + Web) using [`render.yaml`](./render.yaml)
 - Neon (PostgreSQL)
 - Upstash (Redis)
 
-### 1) Create free managed data services
+### 1) Create managed data services
 
 - Create a Neon Postgres database and copy `DATABASE_URL`
 - Create an Upstash Redis database and copy `REDIS_URL`
@@ -154,59 +153,7 @@ DATABASE_URL="<your-neon-url>" pnpm --filter @pos/api prisma:migrate
 DATABASE_URL="<your-neon-url>" REDIS_URL="<your-upstash-url>" pnpm --filter @pos/api prisma:seed
 ```
 
-### 3) Deploy on Render
-
-1. Push this repo to GitHub.
-2. In Render, create a **Blueprint** and point it to your repo.
-3. Render will detect `render.yaml` and create:
-   - `pos-api-free`
-   - `pos-web-free`
-4. Set these required secret env vars in Render:
-   - `DATABASE_URL` (API)
-   - `REDIS_URL` (API)
-   - `JWT_ACCESS_SECRET` (API)
-   - `JWT_REFRESH_SECRET` (API)
-   - `SUPER_ADMIN_PASSWORD` (API)
-5. After API deploys, set on web service:
-   - `NEXT_PUBLIC_API_BASE_URL=https://<your-api-service>.onrender.com/api/v1`
-   - `NEXT_PUBLIC_SOCKET_URL=https://<your-api-service>.onrender.com`
-6. Redeploy web service.
-
-### 4) Login
+### 3) Login
 
 - Super admin email: `superadmin@platform.local`
 - Super admin password: your `SUPER_ADMIN_PASSWORD` value
-
-### 5) GitHub Actions Deployment (Render)
-
-This repo now includes:
-
-- `.github/workflows/ci.yml`
-- `.github/workflows/render-deploy.yml`
-
-`render-deploy.yml` runs on:
-
-- Push to `pos-deploy`
-- Manual trigger via **Actions > Render Deploy > Run workflow**
-
-Add these GitHub repository secrets before using the Render deploy workflow:
-
-- `RENDER_API_KEY` (Render personal API key)
-- `RENDER_API_SERVICE_ID` (example: `srv-...` for API service)
-- `RENDER_WEB_SERVICE_ID` (example: `srv-...` for web service)
-- `RENDER_API_HEALTHCHECK_URL` (example: `https://pos-api-free.onrender.com/api/v1/health`)
-- `RENDER_WEB_URL` (example: `https://pos-web-free.onrender.com`)
-
-What the workflow does:
-
-- Validates builds for API + web
-- Triggers API deploy and waits until Render marks it `live`
-- Triggers web deploy and waits until Render marks it `live`
-- Runs API health check and web login-route check
-
-If your Render services use a different branch, update the trigger branch in `.github/workflows/render-deploy.yml`.
-
-### Free-tier behavior to expect
-
-- Free instances may spin down when idle (cold starts are normal)
-- This is fine for demos/testing; for production uptime, move to paid plans
