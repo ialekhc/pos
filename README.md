@@ -123,37 +123,36 @@ Payment logic is provider-agnostic:
 - Current provider: manual placeholder implementation
 - Future providers (Stripe/Razorpay/etc.) can be plugged through `PaymentProviderFactory`
 
-## Notes for Production Deployment
+## Local Development
 
-- Move secrets to managed secret store (no plaintext env in CI)
-- Use managed PostgreSQL + Redis with backups
-- Add worker queue for CSV/PDF exports and reconciliation jobs
-- Add rate limiting + WAF + API monitoring
-- Add centralized logs/traces and alerting
-- Use separate JWT secrets per environment and rotate periodically
+This repository is configured for local development only. PostgreSQL and Redis run in Docker, while the API and web applications run through pnpm.
 
-## Managed Data Services
-
-You can use managed services for production-like environments:
-
-- Neon (PostgreSQL)
-- Upstash (Redis)
-
-### 1) Create managed data services
-
-- Create a Neon Postgres database and copy `DATABASE_URL`
-- Create an Upstash Redis database and copy `REDIS_URL`
-
-### 2) Prepare production schema + seed once
-
-Run from your machine (this seeds your cloud DB):
+Start the data services:
 
 ```bash
-DATABASE_URL="<your-neon-url>" pnpm --filter @pos/api prisma:migrate
-DATABASE_URL="<your-neon-url>" REDIS_URL="<your-upstash-url>" pnpm --filter @pos/api prisma:seed
+docker compose up -d
 ```
 
-### 3) Login
+Prepare the database after the first start or after schema changes:
 
-- Super admin email: `superadmin@platform.local`
-- Super admin password: your `SUPER_ADMIN_PASSWORD` value
+```bash
+pnpm --filter @pos/api prisma:generate
+pnpm --filter @pos/api prisma:migrate
+pnpm --filter @pos/api prisma:seed
+```
+
+Start both applications:
+
+```bash
+pnpm dev
+```
+
+Open `http://localhost:3000`. The API health endpoint is `http://localhost:3001/api/v1/health`.
+
+Stop local data services when finished:
+
+```bash
+docker compose down
+```
+
+If port `3000` or `3001` is already in use, stop the existing process before running `pnpm dev` again.
